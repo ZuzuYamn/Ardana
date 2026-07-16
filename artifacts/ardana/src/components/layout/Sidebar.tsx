@@ -3,16 +3,17 @@ import { Link, useLocation } from 'wouter';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 import { 
   LayoutDashboard, 
-  Leaf, 
   Bell, 
   CloudSun, 
   ScanSearch, 
   Stethoscope, 
   Settings, 
   HelpCircle, 
-  Info 
+  Info,
+  Leaf,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ArdanaLogo } from '@/components/ui/ArdanaLogo';
 
 export function Sidebar() {
   const [location] = useLocation();
@@ -60,10 +61,8 @@ export function Sidebar() {
       isRTL ? "right-0 border-l" : "left-0 border-r"
     )}>
       <div className="p-6">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-sm">
-            <Leaf className="w-6 h-6 text-primary-foreground" />
-          </div>
+        <Link href="/" className="flex items-center gap-3">
+          <ArdanaLogo size={42} variant="dark" />
           <div>
             <h1 className="font-serif text-2xl font-bold text-sidebar-foreground tracking-tight">Ardana</h1>
             <p className="text-xs text-sidebar-foreground/60 font-medium">Our Land. Our Life.</p>

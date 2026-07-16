@@ -1,0 +1,37 @@
+Create a Smart Plant Care and Farm Management Application
+
+This application uses artificial intelligence to help users identify, monitor, and care for plants and crops.
+
+Plant Disease Detection: 
+Users can upload a photo of a diseased plant, and the AI model will identify the disease, explain its causes, and provide treatment recommendations, including suitable products and preventive measures.
+
+Plant Identification and Care Guidance: 
+Users can upload a photo of an unknown plant, and the application will identify the species and provide detailed information, including watering requirements, growing conditions, fertilizers, and care recommendations.
+
+Crop and Farm Tracking: 
+Users can create accounts and register the plants, trees, or crops on their land by uploading photos and related information. The application will monitor their growth and provide personalized reminders and alerts for watering, fertilizing, pruning, and other maintenance activities, helping users manage their farms more efficiently.
+
+Weather Integration: 
+The application includes a weather dashboard with current conditions, forecasts, and a map view. Plant care recommendations, such as watering schedules and maintenance reminders, are automatically adjusted based on weather conditions and forecasts to improve accuracy and reduce unnecessary watering.
+
+Offline Functionality: 
+The application is designed to operate even without an internet connection. Users can access their registered farm data, add , update or remove plant records, and receive scheduled reminders while offline. The application synchronizes changes and updates when an internet connection becomes available. Only the AI-powered plant identification and disease diagnosis features require an active internet connection.
+
+Accessibility: 
+The application includes an accessibility mode to support users with disabilities, particularly those who have difficulty reading or are visually impaired. Users can enable audio narration from the settings so that plant information, care instructions, and other content are read aloud, making the application easier to use.
+
+Multilingual Support: 
+The application supports five languages: English, Arabic, French, Spanish, and Portuguese, allowing users to interact with the interface and access information in their preferred language.
+
+User Guide and Help Center: 
+The application includes a dedicated "How to Use" section that provides users with clear instructions on navigating and using the application's features. This guide explains the purpose of each section,  and includes step-by-step instructions, tips, and frequently asked questions (FAQs) to help users, especially first-time users, make the most of the application.
+
+Brand Identity (Logo and Theme): 
+The application shall include a unique brand identity centered around the name "Ardana", derived from the Arabic phrase meaning "Our Land." The logo and overall visual theme should reflect the spirit of agriculture, sustainability, and growth while subtly incorporating elements inspired by Lebanese and Arab heritage. The design should remain modern, clean, and internationally appealing, using colors and visual elements that evoke nature, fertile land, and farming.
+
+About the Developers:
+The application shall include an "About the Developers" section that introduces the development team. This page will provide information about each developer, including their name, role, professional biography, LinkedIn profile, GitHub profile, email address, and other relevant contact information. The purpose of this section is to acknowledge the development team and provide users with a way to learn more about or contact the developers.
+
+The application should be compatible with mobile and ipad and desktops
+
+The ai agent you will be using is google gemini

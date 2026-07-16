@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Ardana — Smart Plant Care"
+version = "1.0.0"
+id = "artifacts/ardana"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 23421
+
+[services.development]
+run = "pnpm --filter @workspace/ardana run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/ardana", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/ardana/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "23421"
+BASE_PATH = "/"

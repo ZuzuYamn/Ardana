@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface ReminderUpdate {
+  type?: string;
+  scheduledDate?: Date;
+  completed?: boolean;
+  notes?: string;
 }

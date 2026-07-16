@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
+export interface WeatherHourly {
+  time: string;
+  temperature: number;
+  precipitation: number;
+  weatherCode: number;
+  humidity: number;
 }

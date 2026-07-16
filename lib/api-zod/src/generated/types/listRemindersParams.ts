@@ -6,6 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface HealthStatus {
-  status: string;
-}
+export type ListRemindersParams = {
+completed?: string;
+type?: string;
+/**
+ * If "true", return only upcoming/overdue reminders
+ */
+upcoming?: string;
+};

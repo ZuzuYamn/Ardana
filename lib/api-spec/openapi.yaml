@@ -3,20 +3,28 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Ardana Smart Plant Care and Farm Management API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: plants
+    description: Plant and crop management
+  - name: reminders
+    description: Maintenance reminders
+  - name: ai
+    description: AI-powered plant analysis
+  - name: weather
+    description: Weather data
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,321 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /plants:
+    get:
+      operationId: listPlants
+      tags: [plants]
+      summary: List all plants
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: healthStatus
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of plants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Plant"
+    post:
+      operationId: createPlant
+      tags: [plants]
+      summary: Create a new plant record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlantInput"
+      responses:
+        "201":
+          description: Created plant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plant"
+
+  /plants/dashboard:
+    get:
+      operationId: getPlantDashboard
+      tags: [plants]
+      summary: Get dashboard summary statistics
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /plants/{id}:
+    get:
+      operationId: getPlant
+      tags: [plants]
+      summary: Get a plant by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Plant detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlantDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    patch:
+      operationId: updatePlant
+      tags: [plants]
+      summary: Update a plant record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlantUpdate"
+      responses:
+        "200":
+          description: Updated plant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Plant"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deletePlant
+      tags: [plants]
+      summary: Delete a plant record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /plants/{id}/reminders:
+    get:
+      operationId: listPlantReminders
+      tags: [reminders]
+      summary: List reminders for a specific plant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of reminders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Reminder"
+
+  /reminders:
+    get:
+      operationId: listReminders
+      tags: [reminders]
+      summary: List all reminders
+      parameters:
+        - name: completed
+          in: query
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            type: string
+        - name: upcoming
+          in: query
+          description: If "true", return only upcoming/overdue reminders
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of reminders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Reminder"
+    post:
+      operationId: createReminder
+      tags: [reminders]
+      summary: Create a maintenance reminder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReminderInput"
+      responses:
+        "201":
+          description: Created reminder
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+
+  /reminders/{id}:
+    patch:
+      operationId: updateReminder
+      tags: [reminders]
+      summary: Update or complete a reminder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReminderUpdate"
+      responses:
+        "200":
+          description: Updated reminder
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reminder"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    delete:
+      operationId: deleteReminder
+      tags: [reminders]
+      summary: Delete a reminder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /ai/identify-plant:
+    post:
+      operationId: identifyPlant
+      tags: [ai]
+      summary: Identify a plant from an uploaded image
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlantImageInput"
+      responses:
+        "200":
+          description: Plant identification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlantIdentificationResult"
+
+  /ai/detect-disease:
+    post:
+      operationId: detectDisease
+      tags: [ai]
+      summary: Detect plant disease from an uploaded image
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlantImageInput"
+      responses:
+        "200":
+          description: Disease detection result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiseaseDetectionResult"
+
+  /weather:
+    get:
+      operationId: getWeather
+      tags: [weather]
+      summary: Get current weather and forecast for a location
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: lon
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: locationName
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Weather data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WeatherData"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +357,465 @@ components:
       required:
         - status
 
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Plant:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        species:
+          type: ["string", "null"]
+        type:
+          type: string
+          description: crop | tree | plant | flower | herb | shrub
+        location:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        photoUrl:
+          type: ["string", "null"]
+        plantedDate:
+          type: ["string", "null"]
+          format: date
+        lastWateredDate:
+          type: ["string", "null"]
+          format: date
+        lastFertilizedDate:
+          type: ["string", "null"]
+          format: date
+        lastPrunedDate:
+          type: ["string", "null"]
+          format: date
+        healthStatus:
+          type: string
+          description: healthy | moderate | poor | unknown
+        wateringIntervalDays:
+          type: ["integer", "null"]
+        fertilizingIntervalDays:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - type
+        - healthStatus
+        - createdAt
+        - updatedAt
+
+    PlantDetail:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        species:
+          type: ["string", "null"]
+        type:
+          type: string
+        location:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        photoUrl:
+          type: ["string", "null"]
+        plantedDate:
+          type: ["string", "null"]
+          format: date
+        lastWateredDate:
+          type: ["string", "null"]
+          format: date
+        lastFertilizedDate:
+          type: ["string", "null"]
+          format: date
+        lastPrunedDate:
+          type: ["string", "null"]
+          format: date
+        healthStatus:
+          type: string
+        wateringIntervalDays:
+          type: ["integer", "null"]
+        fertilizingIntervalDays:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        reminders:
+          type: array
+          items:
+            $ref: "#/components/schemas/Reminder"
+      required:
+        - id
+        - name
+        - type
+        - healthStatus
+        - createdAt
+        - updatedAt
+        - reminders
+
+    PlantInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        species:
+          type: string
+        type:
+          type: string
+        location:
+          type: string
+        notes:
+          type: string
+        photoUrl:
+          type: string
+        plantedDate:
+          type: string
+          format: date
+        healthStatus:
+          type: string
+        wateringIntervalDays:
+          type: integer
+        fertilizingIntervalDays:
+          type: integer
+      required:
+        - name
+        - type
+
+    PlantUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        species:
+          type: string
+        type:
+          type: string
+        location:
+          type: string
+        notes:
+          type: string
+        photoUrl:
+          type: string
+        plantedDate:
+          type: string
+          format: date
+        lastWateredDate:
+          type: string
+          format: date
+        lastFertilizedDate:
+          type: string
+          format: date
+        lastPrunedDate:
+          type: string
+          format: date
+        healthStatus:
+          type: string
+        wateringIntervalDays:
+          type: integer
+        fertilizingIntervalDays:
+          type: integer
+
+    Reminder:
+      type: object
+      properties:
+        id:
+          type: integer
+        plantId:
+          type: integer
+        plantName:
+          type: string
+        type:
+          type: string
+          description: watering | fertilizing | pruning | spraying | harvesting | other
+        scheduledDate:
+          type: string
+          format: date
+        completed:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - plantId
+        - plantName
+        - type
+        - scheduledDate
+        - completed
+        - createdAt
+
+    ReminderInput:
+      type: object
+      properties:
+        plantId:
+          type: integer
+        type:
+          type: string
+        scheduledDate:
+          type: string
+          format: date
+        notes:
+          type: string
+      required:
+        - plantId
+        - type
+        - scheduledDate
+
+    ReminderUpdate:
+      type: object
+      properties:
+        type:
+          type: string
+        scheduledDate:
+          type: string
+          format: date
+        completed:
+          type: boolean
+        notes:
+          type: string
+
+    DashboardStats:
+      type: object
+      properties:
+        totalPlants:
+          type: integer
+        byType:
+          type: object
+          additionalProperties:
+            type: integer
+        byHealth:
+          type: object
+          additionalProperties:
+            type: integer
+        upcomingRemindersCount:
+          type: integer
+        overdueRemindersCount:
+          type: integer
+        recentlyWatered:
+          type: integer
+        needsAttention:
+          type: integer
+      required:
+        - totalPlants
+        - byType
+        - byHealth
+        - upcomingRemindersCount
+        - overdueRemindersCount
+        - recentlyWatered
+        - needsAttention
+
+    PlantImageInput:
+      type: object
+      properties:
+        imageBase64:
+          type: string
+          description: Base64-encoded image data
+        mimeType:
+          type: string
+          description: Image MIME type, e.g. image/jpeg
+      required:
+        - imageBase64
+        - mimeType
+
+    PlantIdentificationResult:
+      type: object
+      properties:
+        species:
+          type: ["string", "null"]
+        commonName:
+          type: ["string", "null"]
+        family:
+          type: ["string", "null"]
+        confidence:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        wateringRequirements:
+          type: ["string", "null"]
+        growingConditions:
+          type: ["string", "null"]
+        fertilizers:
+          type: ["string", "null"]
+        careRecommendations:
+          type: ["string", "null"]
+        sunlight:
+          type: ["string", "null"]
+        soilType:
+          type: ["string", "null"]
+        error:
+          type: ["string", "null"]
+      required:
+        - species
+        - commonName
+        - family
+        - confidence
+        - description
+        - wateringRequirements
+        - growingConditions
+        - fertilizers
+        - careRecommendations
+        - sunlight
+        - soilType
+        - error
+
+    DiseaseDetectionResult:
+      type: object
+      properties:
+        isHealthy:
+          type: boolean
+        diseaseName:
+          type: ["string", "null"]
+        confidence:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        causes:
+          type: ["string", "null"]
+        symptoms:
+          type: ["string", "null"]
+        treatments:
+          type: ["string", "null"]
+        products:
+          type: ["string", "null"]
+        preventiveMeasures:
+          type: ["string", "null"]
+        urgency:
+          type: ["string", "null"]
+        error:
+          type: ["string", "null"]
+      required:
+        - isHealthy
+        - diseaseName
+        - confidence
+        - description
+        - causes
+        - symptoms
+        - treatments
+        - products
+        - preventiveMeasures
+        - urgency
+        - error
+
+    WeatherData:
+      type: object
+      properties:
+        locationName:
+          type: string
+        current:
+          $ref: "#/components/schemas/WeatherCurrent"
+        hourly:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeatherHourly"
+        daily:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeatherDaily"
+        recommendation:
+          type: string
+          description: AI-generated care recommendation based on weather
+      required:
+        - locationName
+        - current
+        - hourly
+        - daily
+        - recommendation
+
+    WeatherCurrent:
+      type: object
+      properties:
+        temperature:
+          type: number
+        feelsLike:
+          type: number
+        humidity:
+          type: integer
+        windSpeed:
+          type: number
+        weatherCode:
+          type: integer
+        weatherDescription:
+          type: string
+        isDay:
+          type: boolean
+        precipitation:
+          type: number
+      required:
+        - temperature
+        - feelsLike
+        - humidity
+        - windSpeed
+        - weatherCode
+        - weatherDescription
+        - isDay
+        - precipitation
+
+    WeatherHourly:
+      type: object
+      properties:
+        time:
+          type: string
+        temperature:
+          type: number
+        precipitation:
+          type: number
+        weatherCode:
+          type: integer
+        humidity:
+          type: integer
+      required:
+        - time
+        - temperature
+        - precipitation
+        - weatherCode
+        - humidity
+
+    WeatherDaily:
+      type: object
+      properties:
+        date:
+          type: string
+        maxTemp:
+          type: number
+        minTemp:
+          type: number
+        precipitation:
+          type: number
+        weatherCode:
+          type: integer
+        weatherDescription:
+          type: string
+        sunrise:
+          type: string
+        sunset:
+          type: string
+      required:
+        - date
+        - maxTemp
+        - minTemp
+        - precipitation
+        - weatherCode
+        - weatherDescription
+        - sunrise
+        - sunset

@@ -40,17 +40,19 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 export default function PlantDetail() {
   const [, params] = useRoute('/plants/:id');
   const id = params?.id ? parseInt(params.id, 10) : 0;
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
 
   const { data: plant, isLoading, error } = useGetPlant(id, { query: { enabled: id > 0, queryKey: getGetPlantQueryKey(id) } });
   const { data: reminders, isLoading: remindersLoading } = useListPlantReminders(id, { query: { enabled: id > 0, queryKey: getListPlantRemindersQueryKey(id) } });
-  
+
   const updatePlant = useUpdatePlant();
   const deletePlant = useDeletePlant();
   const updateReminder = useUpdateReminder();
@@ -61,9 +63,9 @@ export default function PlantDetail() {
     return (
       <div className="text-center py-20">
         <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-        <h2 className="text-2xl font-serif font-bold text-foreground">Plant not found</h2>
-        <p className="text-muted-foreground mt-2 mb-6">This record might have been deleted.</p>
-        <Button onClick={() => setLocation('/plants')}>Return to Farm</Button>
+        <h2 className="text-2xl font-serif font-bold text-foreground">{t('plant.not_found')}</h2>
+        <p className="text-muted-foreground mt-2 mb-6">{t('plant.not_found_desc')}</p>
+        <Button onClick={() => setLocation('/plants')}>{t('plant.return')}</Button>
       </div>
     );
   }
@@ -71,7 +73,7 @@ export default function PlantDetail() {
   const handleQuickLog = (action: 'water' | 'fertilize' | 'prune') => {
     const now = new Date().toISOString();
     const updates: any = {};
-    
+
     if (action === 'water') updates.lastWateredDate = now;
     if (action === 'fertilize') updates.lastFertilizedDate = now;
     if (action === 'prune') updates.lastPrunedDate = now;
@@ -82,7 +84,8 @@ export default function PlantDetail() {
         queryClient.setQueryData(getGetPlantQueryKey(id), (old: any) => 
           old ? { ...old, ...updates } : old
         );
-        toast({ title: `Logged ${action} event`, description: "Record updated successfully." });
+        const actionLabel = action === 'water' ? t('plant.log_water') : action === 'fertilize' ? t('plant.log_fertilize') : t('plant.log_prune');
+        toast({ title: t('plant.logged', { action: actionLabel }), description: t('plant.logged_desc') });
       }
     });
   };
@@ -90,7 +93,7 @@ export default function PlantDetail() {
   const handleDelete = () => {
     deletePlant.mutate({ id }, {
       onSuccess: () => {
-        toast({ title: "Plant deleted", description: "Record removed from your farm." });
+        toast({ title: t('plant.deleted'), description: t('plant.deleted_desc') });
         setLocation('/plants');
       }
     });
@@ -100,7 +103,7 @@ export default function PlantDetail() {
     updateReminder.mutate({ id: reminderId, data: { completed: true } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListPlantRemindersQueryKey(id) });
-        toast({ title: "Task completed", description: "Great job keeping up with maintenance!" });
+        toast({ title: t('plant.task_completed'), description: t('plant.task_completed_desc') });
       }
     });
   };
@@ -132,19 +135,19 @@ export default function PlantDetail() {
           <div>
             <h1 className="text-3xl font-serif font-bold text-foreground leading-tight">{plant.name}</h1>
             <p className="text-muted-foreground italic flex items-center gap-2">
-              {plant.species || 'Unknown species'} • <span className="capitalize">{plant.type}</span>
+              {plant.species || t('plants.unknown_species')} • <span className="capitalize">{plant.type}</span>
             </p>
           </div>
         </div>
-        
+
         <div className="flex gap-2">
           <Dialog open={isLogDialogOpen} onOpenChange={setIsLogDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-primary text-primary-foreground">Quick Log</Button>
+              <Button className="bg-primary text-primary-foreground">{t('plant.quick_log')}</Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
-                <DialogTitle className="font-serif text-2xl">Log Activity</DialogTitle>
+                <DialogTitle className="font-serif text-2xl">{t('plant.log_activity')}</DialogTitle>
               </DialogHeader>
               <div className="grid grid-cols-1 gap-3 py-4">
                 <Button 
@@ -155,7 +158,7 @@ export default function PlantDetail() {
                   <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
                     <Droplets className="w-4 h-4 text-blue-600" />
                   </div>
-                  Mark as Watered Now
+                  {t('plant.mark_watered_now')}
                 </Button>
                 <Button 
                   variant="outline" 
@@ -165,7 +168,7 @@ export default function PlantDetail() {
                   <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center">
                     <Sprout className="w-4 h-4 text-amber-600" />
                   </div>
-                  Mark as Fertilized Now
+                  {t('plant.mark_fertilized_now')}
                 </Button>
                 <Button 
                   variant="outline" 
@@ -175,7 +178,7 @@ export default function PlantDetail() {
                   <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
                     <Leaf className="w-4 h-4 text-green-600" />
                   </div>
-                  Mark as Pruned Now
+                  {t('plant.mark_pruned_now')}
                 </Button>
               </div>
             </DialogContent>
@@ -189,15 +192,15 @@ export default function PlantDetail() {
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogTitle>{t('plant.delete_confirm_title')}</AlertDialogTitle>
                 <AlertDialogDescription>
-                  This action cannot be undone. This will permanently delete {plant.name} and all its history.
+                  {t('plant.delete_confirm_desc', { name: plant.name })}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel>{t('plant.delete_cancel')}</AlertDialogCancel>
                 <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  Delete Plant
+                  {t('plant.delete_confirm_btn')}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -223,7 +226,7 @@ export default function PlantDetail() {
               plant.healthStatus === 'poor' ? "bg-red-500/90 text-white" :
               "bg-amber-500/90 text-white"
             )}>
-              {plant.healthStatus}
+              {t(`plants.health_${plant.healthStatus}`)}
             </span>
           </div>
           <div className="flex gap-2 text-white/90">
@@ -238,45 +241,45 @@ export default function PlantDetail() {
 
       {/* Details Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-        
+
         {/* Main Info */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-card border rounded-2xl p-6 shadow-sm">
-            <h2 className="text-xl font-serif font-bold text-foreground mb-4">Care History</h2>
+            <h2 className="text-xl font-serif font-bold text-foreground mb-4">{t('plant.care_history')}</h2>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-4 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900">
                 <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-2">
                   <Droplet className="w-5 h-5" />
-                  <span className="font-semibold text-sm">Last Watered</span>
+                  <span className="font-semibold text-sm">{t('plant.last_watered')}</span>
                 </div>
                 <p className="text-lg font-medium text-foreground">
-                  {plant.lastWateredDate ? formatDistanceToNow(new Date(plant.lastWateredDate), { addSuffix: true }) : 'Never'}
+                  {plant.lastWateredDate ? formatDistanceToNow(new Date(plant.lastWateredDate), { addSuffix: true }) : t('plant.never')}
                 </p>
                 {plant.wateringIntervalDays && (
-                  <p className="text-xs text-muted-foreground mt-1">Every {plant.wateringIntervalDays} days</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('plant.every_days', { days: String(plant.wateringIntervalDays) })}</p>
                 )}
               </div>
 
               <div className="p-4 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900">
                 <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-2">
                   <Sprout className="w-5 h-5" />
-                  <span className="font-semibold text-sm">Last Fertilized</span>
+                  <span className="font-semibold text-sm">{t('plant.last_fertilized')}</span>
                 </div>
                 <p className="text-lg font-medium text-foreground">
-                  {plant.lastFertilizedDate ? formatDistanceToNow(new Date(plant.lastFertilizedDate), { addSuffix: true }) : 'Never'}
+                  {plant.lastFertilizedDate ? formatDistanceToNow(new Date(plant.lastFertilizedDate), { addSuffix: true }) : t('plant.never')}
                 </p>
                 {plant.fertilizingIntervalDays && (
-                  <p className="text-xs text-muted-foreground mt-1">Every {plant.fertilizingIntervalDays} days</p>
+                  <p className="text-xs text-muted-foreground mt-1">{t('plant.every_days', { days: String(plant.fertilizingIntervalDays) })}</p>
                 )}
               </div>
 
               <div className="p-4 rounded-xl bg-green-50/50 dark:bg-green-950/20 border border-green-100 dark:border-green-900">
                 <div className="flex items-center gap-2 text-green-600 dark:text-green-400 mb-2">
                   <Leaf className="w-5 h-5" />
-                  <span className="font-semibold text-sm">Last Pruned</span>
+                  <span className="font-semibold text-sm">{t('plant.last_pruned')}</span>
                 </div>
                 <p className="text-lg font-medium text-foreground">
-                  {plant.lastPrunedDate ? formatDistanceToNow(new Date(plant.lastPrunedDate), { addSuffix: true }) : 'Never'}
+                  {plant.lastPrunedDate ? formatDistanceToNow(new Date(plant.lastPrunedDate), { addSuffix: true }) : t('plant.never')}
                 </p>
               </div>
             </div>
@@ -284,22 +287,22 @@ export default function PlantDetail() {
 
           {plant.notes && (
             <div className="bg-card border rounded-2xl p-6 shadow-sm">
-              <h2 className="text-xl font-serif font-bold text-foreground mb-3">Notes</h2>
+              <h2 className="text-xl font-serif font-bold text-foreground mb-3">{t('plant.notes')}</h2>
               <div className="text-foreground/80 whitespace-pre-wrap leading-relaxed">
                 {plant.notes}
               </div>
             </div>
           )}
-          
+
           <div className="bg-card border rounded-2xl p-6 shadow-sm">
-             <h2 className="text-xl font-serif font-bold text-foreground mb-4">Registration Details</h2>
+             <h2 className="text-xl font-serif font-bold text-foreground mb-4">{t('plant.registration_details')}</h2>
              <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <p className="text-muted-foreground mb-1">Planted Date</p>
-                  <p className="font-medium text-foreground">{plant.plantedDate ? format(new Date(plant.plantedDate), 'MMMM d, yyyy') : 'Unknown'}</p>
+                  <p className="text-muted-foreground mb-1">{t('plant.planted')}</p>
+                  <p className="font-medium text-foreground">{plant.plantedDate ? format(new Date(plant.plantedDate), 'MMMM d, yyyy') : t('plant.unknown_date')}</p>
                 </div>
                 <div>
-                  <p className="text-muted-foreground mb-1">Added to Ardana</p>
+                  <p className="text-muted-foreground mb-1">{t('plant.added_to_ardana')}</p>
                   <p className="font-medium text-foreground">{format(new Date(plant.createdAt), 'MMMM d, yyyy')}</p>
                 </div>
              </div>
@@ -312,10 +315,10 @@ export default function PlantDetail() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-serif font-bold text-foreground flex items-center gap-2">
                 <Clock className="w-5 h-5 text-accent-foreground" />
-                Tasks
+                {t('plant.tasks')}
               </h2>
             </div>
-            
+
             {remindersLoading ? (
               <div className="space-y-3">
                 <Skeleton className="h-16 w-full rounded-xl" />
@@ -334,7 +337,9 @@ export default function PlantDetail() {
                       <Check className="w-4 h-4" />
                     </Button>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm text-foreground capitalize truncate">{reminder.type}</p>
+                      <p className="font-medium text-sm text-foreground capitalize truncate">
+                        {reminder.type === 'water' ? t('plant.log_water') : reminder.type === 'fertilize' ? t('plant.log_fertilize') : reminder.type === 'prune' ? t('plant.log_prune') : reminder.type}
+                      </p>
                       <p className="text-xs text-muted-foreground">{formatDistanceToNow(new Date(reminder.scheduledDate), { addSuffix: true })}</p>
                     </div>
                   </div>
@@ -343,13 +348,13 @@ export default function PlantDetail() {
             ) : (
               <div className="text-center py-8">
                 <Calendar className="w-10 h-10 text-muted-foreground/50 mx-auto mb-3" />
-                <p className="text-sm text-muted-foreground">No pending tasks for this plant.</p>
+                <p className="text-sm text-muted-foreground">{t('plant.no_pending_tasks')}</p>
               </div>
             )}
-            
+
             <div className="mt-6 pt-6 border-t text-center">
                <Link href="/reminders" className="text-sm text-primary font-medium hover:underline">
-                 Manage all reminders →
+                 {t('plant.manage_reminders')}
                </Link>
             </div>
           </div>

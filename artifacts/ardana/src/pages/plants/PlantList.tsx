@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { motion } from 'framer-motion';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 export default function PlantList() {
+  const { t } = useLanguage();
   const [search, setSearch] = useState('');
   const [type, setType] = useState<string>('all');
   const [healthStatus, setHealthStatus] = useState<string>('all');
@@ -40,13 +42,13 @@ export default function PlantList() {
         <div>
           <h1 className="text-3xl font-serif font-bold tracking-tight text-foreground flex items-center gap-3">
             <Leaf className="w-8 h-8 text-primary" />
-            My Farm
+            {t('plants.title')}
           </h1>
-          <p className="text-muted-foreground mt-1">Manage and track all your plants and crops.</p>
+          <p className="text-muted-foreground mt-1">{t('plants.subtitle')}</p>
         </div>
         <Link href="/plants/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-10 px-4 py-2 gap-2">
           <Plus className="w-4 h-4" />
-          Add Plant
+          {t('plants.add')}
         </Link>
       </div>
 
@@ -54,7 +56,7 @@ export default function PlantList() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
-            placeholder="Search by name or species..." 
+            placeholder={t('plants.search_placeholder')} 
             className="pl-9"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -65,17 +67,17 @@ export default function PlantList() {
             <SelectTrigger className="w-[140px] md:w-[180px]">
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-muted-foreground" />
-                <SelectValue placeholder="Type" />
+                <SelectValue placeholder={t('plants.filter_type')} />
               </div>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="crop">Crop</SelectItem>
-              <SelectItem value="tree">Tree</SelectItem>
-              <SelectItem value="plant">Plant</SelectItem>
-              <SelectItem value="flower">Flower</SelectItem>
-              <SelectItem value="herb">Herb</SelectItem>
-              <SelectItem value="shrub">Shrub</SelectItem>
+              <SelectItem value="all">{t('plants.all_types')}</SelectItem>
+              <SelectItem value="crop">{t('plants.type_crop')}</SelectItem>
+              <SelectItem value="tree">{t('plants.type_tree')}</SelectItem>
+              <SelectItem value="plant">{t('plants.type_plant')}</SelectItem>
+              <SelectItem value="flower">{t('plants.type_flower')}</SelectItem>
+              <SelectItem value="herb">{t('plants.type_herb')}</SelectItem>
+              <SelectItem value="shrub">{t('plants.type_shrub')}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -83,14 +85,14 @@ export default function PlantList() {
             <SelectTrigger className="w-[140px] md:w-[180px]">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-muted-foreground" />
-                <SelectValue placeholder="Health" />
+                <SelectValue placeholder={t('plants.filter_health')} />
               </div>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Health</SelectItem>
-              <SelectItem value="healthy">Healthy</SelectItem>
-              <SelectItem value="moderate">Moderate</SelectItem>
-              <SelectItem value="poor">Poor</SelectItem>
+              <SelectItem value="all">{t('plants.all_health')}</SelectItem>
+              <SelectItem value="healthy">{t('plants.health_healthy')}</SelectItem>
+              <SelectItem value="moderate">{t('plants.health_moderate')}</SelectItem>
+              <SelectItem value="poor">{t('plants.health_poor')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -134,7 +136,10 @@ export default function PlantList() {
                         plant.healthStatus === 'poor' ? "bg-red-500/90 text-white" :
                         "bg-amber-500/90 text-white"
                       )}>
-                        {plant.healthStatus}
+                        {plant.healthStatus === 'healthy' ? t('plants.health_healthy')
+                          : plant.healthStatus === 'poor' ? t('plants.health_poor')
+                          : plant.healthStatus === 'moderate' ? t('plants.health_moderate')
+                          : t('plants.health_unknown')}
                       </span>
                     </div>
                     <div className="absolute bottom-3 left-3">
@@ -143,22 +148,22 @@ export default function PlantList() {
                       </span>
                     </div>
                   </div>
-                  
+
                   <div className="p-5">
                     <h3 className="font-serif text-xl font-bold text-foreground mb-1 group-hover:text-primary transition-colors">{plant.name}</h3>
-                    <p className="text-sm text-muted-foreground italic mb-4">{plant.species || 'Unknown species'}</p>
-                    
+                    <p className="text-sm text-muted-foreground italic mb-4">{plant.species || t('plants.unknown_species')}</p>
+
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div className="flex items-center gap-2 text-foreground/80">
                         <MapPin className="w-4 h-4 text-muted-foreground" />
-                        <span className="truncate">{plant.location || 'No location'}</span>
+                        <span className="truncate">{plant.location || t('plants.no_location')}</span>
                       </div>
                       <div className="flex items-center gap-2 text-foreground/80">
                         <Droplets className="w-4 h-4 text-blue-500" />
                         <span className="truncate">
                           {plant.lastWateredDate 
                             ? formatDistanceToNow(new Date(plant.lastWateredDate), { addSuffix: true }) 
-                            : 'Never watered'}
+                            : t('plants.never_watered')}
                         </span>
                       </div>
                     </div>
@@ -173,20 +178,20 @@ export default function PlantList() {
           <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
             <Sprout className="w-10 h-10 text-muted-foreground" />
           </div>
-          <h2 className="font-serif text-2xl font-bold mb-2">No plants found</h2>
+          <h2 className="font-serif text-2xl font-bold mb-2">{t('plants.none_found')}</h2>
           <p className="text-muted-foreground max-w-md mx-auto mb-8">
             {search || type !== 'all' || healthStatus !== 'all' 
-              ? "We couldn't find any plants matching your current filters. Try adjusting them." 
-              : "Your farm is currently empty. Add your first plant to start tracking its growth."}
+              ? t('plants.none_filter') 
+              : t('plants.none_empty')}
           </p>
           {(search || type !== 'all' || healthStatus !== 'all') ? (
             <Button variant="outline" onClick={() => { setSearch(''); setType('all'); setHealthStatus('all'); }}>
-              Clear Filters
+              {t('plants.clear_filters')}
             </Button>
           ) : (
             <Link href="/plants/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-10 px-6 py-2 gap-2">
               <Plus className="w-4 h-4" />
-              Add First Plant
+              {t('plants.add_first')}
             </Link>
           )}
         </div>

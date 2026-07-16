@@ -18,18 +18,20 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 
-const formSchema = z.object({
-  plantId: z.coerce.number().min(1, "Plant is required"),
-  type: z.string().min(1, "Type is required"),
-  scheduledDate: z.string().min(1, "Date is required"),
+const buildFormSchema = (t: (key: string) => string) => z.object({
+  plantId: z.coerce.number().min(1, t('reminders.plant_required')),
+  type: z.string().min(1, t('reminders.type_required')),
+  scheduledDate: z.string().min(1, t('reminders.date_required')),
   notes: z.string().optional(),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<ReturnType<typeof buildFormSchema>>;
 
 export default function Reminders() {
   const { toast } = useToast();
+  const { t } = useLanguage();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState('upcoming');
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -37,14 +39,14 @@ export default function Reminders() {
   const { data: reminders, isLoading } = useListReminders({ 
     completed: tab === 'completed' ? 'true' : 'false' 
   });
-  
+
   const { data: plants } = useListPlants();
-  
+
   const updateReminder = useUpdateReminder();
   const createReminder = useCreateReminder();
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(buildFormSchema(t)),
     defaultValues: {
       type: 'watering',
       scheduledDate: new Date().toISOString().split('T')[0],
@@ -58,7 +60,7 @@ export default function Reminders() {
         queryClient.invalidateQueries({ queryKey: getListRemindersQueryKey({ completed: 'false' }) });
         queryClient.invalidateQueries({ queryKey: getListRemindersQueryKey({ completed: 'true' }) });
         if (!currentStatus) {
-          toast({ title: "Task completed", description: "Good job!" });
+          toast({ title: t('reminders.task_completed'), description: t('reminders.good_job') });
         }
       }
     });
@@ -68,7 +70,7 @@ export default function Reminders() {
     createReminder.mutate({ data }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListRemindersQueryKey({ completed: 'false' }) });
-        toast({ title: "Reminder added", description: "Task has been scheduled." });
+        toast({ title: t('reminders.added'), description: t('reminders.scheduled') });
         setIsAddOpen(false);
         form.reset();
       }
@@ -99,20 +101,20 @@ export default function Reminders() {
         <div>
           <h1 className="text-3xl font-serif font-bold tracking-tight text-foreground flex items-center gap-3">
             <Bell className="w-8 h-8 text-primary" />
-            Reminders
+            {t('reminders.title')}
           </h1>
-          <p className="text-muted-foreground mt-1">Stay on top of your farm's maintenance schedule.</p>
+          <p className="text-muted-foreground mt-1">{t('reminders.subtitle')}</p>
         </div>
-        
+
         <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2 bg-primary text-primary-foreground">
-              <Plus className="w-4 h-4" /> Add Task
+              <Plus className="w-4 h-4" /> {t('reminders.add')}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle className="font-serif text-2xl">New Task</DialogTitle>
+              <DialogTitle className="font-serif text-2xl">{t('reminders.new_task_title')}</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
@@ -121,11 +123,11 @@ export default function Reminders() {
                   name="plantId"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Plant</FormLabel>
+                      <FormLabel>{t('reminders.plant_label')}</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value?.toString()}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select plant" />
+                            <SelectValue placeholder={t('reminders.select_plant')} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -145,7 +147,7 @@ export default function Reminders() {
                     name="type"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Task Type</FormLabel>
+                        <FormLabel>{t('reminders.type_label')}</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
@@ -153,12 +155,12 @@ export default function Reminders() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="watering">Watering</SelectItem>
-                            <SelectItem value="fertilizing">Fertilizing</SelectItem>
-                            <SelectItem value="pruning">Pruning</SelectItem>
-                            <SelectItem value="spraying">Spraying</SelectItem>
-                            <SelectItem value="harvesting">Harvesting</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
+                            <SelectItem value="watering">{t('reminders.type_watering')}</SelectItem>
+                            <SelectItem value="fertilizing">{t('reminders.type_fertilizing')}</SelectItem>
+                            <SelectItem value="pruning">{t('reminders.type_pruning')}</SelectItem>
+                            <SelectItem value="spraying">{t('reminders.type_spraying')}</SelectItem>
+                            <SelectItem value="harvesting">{t('reminders.type_harvesting')}</SelectItem>
+                            <SelectItem value="other">{t('reminders.type_other')}</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -171,7 +173,7 @@ export default function Reminders() {
                     name="scheduledDate"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Date</FormLabel>
+                        <FormLabel>{t('reminders.date_field_label')}</FormLabel>
                         <FormControl>
                           <Input type="date" {...field} />
                         </FormControl>
@@ -186,9 +188,9 @@ export default function Reminders() {
                   name="notes"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Notes (Optional)</FormLabel>
+                      <FormLabel>{t('reminders.notes_label')}</FormLabel>
                       <FormControl>
-                        <Textarea placeholder="Details..." {...field} />
+                        <Textarea placeholder={t('reminders.notes_placeholder')} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -196,7 +198,7 @@ export default function Reminders() {
                 />
 
                 <Button type="submit" className="w-full" disabled={createReminder.isPending}>
-                  Schedule Task
+                  {t('reminders.schedule_btn')}
                 </Button>
               </form>
             </Form>
@@ -206,10 +208,10 @@ export default function Reminders() {
 
       <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2 bg-muted/50 p-1 rounded-xl">
-          <TabsTrigger value="upcoming" className="rounded-lg">Pending Tasks</TabsTrigger>
-          <TabsTrigger value="completed" className="rounded-lg">Completed</TabsTrigger>
+          <TabsTrigger value="upcoming" className="rounded-lg">{t('reminders.pending_tab')}</TabsTrigger>
+          <TabsTrigger value="completed" className="rounded-lg">{t('reminders.completed_tab')}</TabsTrigger>
         </TabsList>
-        
+
         <div className="mt-8">
           {isLoading ? (
             <div className="space-y-4">
@@ -221,7 +223,7 @@ export default function Reminders() {
                 {reminders.map(reminder => {
                   const date = new Date(reminder.scheduledDate);
                   const isOverdue = !reminder.completed && isPast(date) && !isToday(date);
-                  
+
                   return (
                     <motion.div
                       layout
@@ -247,23 +249,23 @@ export default function Reminders() {
                               <Circle className="w-8 h-8 text-muted-foreground group-hover:text-primary transition-colors" />
                             )}
                           </button>
-                          
+
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 mb-1">
                               <h3 className="font-bold text-lg text-foreground truncate">{reminder.plantName}</h3>
                               <div className="flex items-center gap-2 text-sm font-medium">
                                 <Calendar className="w-4 h-4 text-muted-foreground" />
                                 <span className={cn(isOverdue && "text-destructive font-bold")}>
-                                  {isToday(date) ? 'Today' : format(date, 'MMM d, yyyy')}
+                                  {isToday(date) ? t('reminders.today') : format(date, 'MMM d, yyyy')}
                                 </span>
                               </div>
                             </div>
-                            
+
                             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                               {getIconForType(reminder.type)}
-                              <span className="capitalize">{reminder.type}</span>
+                              <span className="capitalize">{t(`reminders.type_${reminder.type}`)}</span>
                             </div>
-                            
+
                             {reminder.notes && (
                               <p className="text-sm text-foreground/70 bg-background/50 p-2 rounded-lg border border-border/50">
                                 {reminder.notes}
@@ -282,11 +284,11 @@ export default function Reminders() {
                 <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
                   <CheckCircle2 className="w-10 h-10 text-muted-foreground" />
                 </div>
-                <h2 className="font-serif text-2xl font-bold mb-2">All caught up!</h2>
+                <h2 className="font-serif text-2xl font-bold mb-2">{t('reminders.all_caught_up')}</h2>
                 <p className="text-muted-foreground max-w-md mx-auto">
                   {tab === 'upcoming' 
-                    ? "You have no pending tasks. Enjoy your day on the farm!" 
-                    : "No completed tasks yet. Check pending tasks to see what needs to be done."}
+                    ? t('reminders.no_upcoming')
+                    : t('reminders.no_completed')}
                 </p>
              </div>
           )}

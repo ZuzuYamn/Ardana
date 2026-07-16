@@ -19,25 +19,25 @@ export default function Settings() {
           <SettingsIcon className="w-8 h-8 text-primary" />
           {t('nav.settings')}
         </h1>
-        <p className="text-muted-foreground mt-1">Manage your preferences and app experience.</p>
+        <p className="text-muted-foreground mt-1">{t('settings.subtitle')}</p>
       </div>
 
       <div className="grid gap-6">
         <Card className="shadow-sm border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-serif text-xl">
-              <Globe className="w-5 h-5 text-primary" /> Language & Region
+              <Globe className="w-5 h-5 text-primary" /> {t('settings.language_title')}
             </CardTitle>
-            <CardDescription>Choose your preferred language for the interface.</CardDescription>
+            <CardDescription>{t('settings.language_desc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               {[
-                { id: 'en', label: 'English', native: 'English' },
-                { id: 'ar', label: 'Arabic', native: 'العربية' },
-                { id: 'fr', label: 'French', native: 'Français' },
-                { id: 'es', label: 'Spanish', native: 'Español' },
-                { id: 'pt', label: 'Portuguese', native: 'Português' },
+                { id: 'en', label: t('settings.lang_en'), native: 'English' },
+                { id: 'ar', label: t('settings.lang_ar'), native: 'العربية' },
+                { id: 'fr', label: t('settings.lang_fr'), native: 'Français' },
+                { id: 'es', label: t('settings.lang_es'), native: 'Español' },
+                { id: 'pt', label: t('settings.lang_pt'), native: 'Português' },
               ].map((lang) => (
                 <div 
                   key={lang.id}
@@ -59,14 +59,14 @@ export default function Settings() {
         <Card className="shadow-sm border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-serif text-xl">
-              <Eye className="w-5 h-5 text-primary" /> Accessibility
+              <Eye className="w-5 h-5 text-primary" /> {t('settings.accessibility_title')}
             </CardTitle>
-            <CardDescription>Customize the display for better readability.</CardDescription>
+            <CardDescription>{t('settings.accessibility_desc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-4">
               <Label className="text-base flex items-center gap-2">
-                <Type className="w-4 h-4" /> Text Size
+                <Type className="w-4 h-4" /> {t('settings.text_size')}
               </Label>
               <RadioGroup 
                 defaultValue={fontSize} 
@@ -75,23 +75,23 @@ export default function Settings() {
               >
                 <div className="flex items-center space-x-3 p-3 rounded-lg border bg-card">
                   <RadioGroupItem value="normal" id="fs-normal" />
-                  <Label htmlFor="fs-normal" className="flex-1 cursor-pointer">Normal (Default)</Label>
+                  <Label htmlFor="fs-normal" className="flex-1 cursor-pointer">{t('settings.normal')}</Label>
                 </div>
                 <div className="flex items-center space-x-3 p-3 rounded-lg border bg-card">
                   <RadioGroupItem value="large" id="fs-large" />
-                  <Label htmlFor="fs-large" className="flex-1 cursor-pointer text-lg">Large</Label>
+                  <Label htmlFor="fs-large" className="flex-1 cursor-pointer text-lg">{t('settings.large')}</Label>
                 </div>
                 <div className="flex items-center space-x-3 p-3 rounded-lg border bg-card">
                   <RadioGroupItem value="xl" id="fs-xl" />
-                  <Label htmlFor="fs-xl" className="flex-1 cursor-pointer text-xl">Extra Large</Label>
+                  <Label htmlFor="fs-xl" className="flex-1 cursor-pointer text-xl">{t('settings.xl')}</Label>
                 </div>
               </RadioGroup>
             </div>
 
             <div className="flex items-center justify-between p-4 rounded-xl border bg-card">
               <div className="space-y-0.5">
-                <Label className="text-base">High Contrast Mode</Label>
-                <p className="text-sm text-muted-foreground">Increase contrast between text and background</p>
+                <Label className="text-base">{t('settings.high_contrast')}</Label>
+                <p className="text-sm text-muted-foreground">{t('settings.high_contrast_desc')}</p>
               </div>
               <Switch 
                 checked={highContrast} 
@@ -104,22 +104,22 @@ export default function Settings() {
         <Card className="shadow-sm border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 font-serif text-xl">
-              <Bell className="w-5 h-5 text-primary" /> Notifications
+              <Bell className="w-5 h-5 text-primary" /> {t('settings.notifications_title')}
             </CardTitle>
-            <CardDescription>Manage how Ardana alerts you.</CardDescription>
+            <CardDescription>{t('settings.notifications_desc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between p-4 rounded-xl border bg-card">
               <div className="space-y-0.5">
-                <Label className="text-base">Weather Alerts</Label>
-                <p className="text-sm text-muted-foreground">Get notified about frost, extreme heat, or heavy rain</p>
+                <Label className="text-base">{t('settings.weather_alerts')}</Label>
+                <p className="text-sm text-muted-foreground">{t('settings.weather_alerts_desc')}</p>
               </div>
               <Switch defaultChecked />
             </div>
             <div className="flex items-center justify-between p-4 rounded-xl border bg-card">
               <div className="space-y-0.5">
-                <Label className="text-base">Task Reminders</Label>
-                <p className="text-sm text-muted-foreground">Daily summary of upcoming watering and care tasks</p>
+                <Label className="text-base">{t('settings.task_reminders')}</Label>
+                <p className="text-sm text-muted-foreground">{t('settings.task_reminders_desc')}</p>
               </div>
               <Switch defaultChecked />
             </div>

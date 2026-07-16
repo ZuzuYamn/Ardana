@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { getGeminiModel } from "../../lib/gemini";
+import { getChatModel, getVisionModel, getSupportModel } from "../../lib/gemini";
 import { IdentifyPlantBody, DetectDiseaseBody } from "@workspace/api-zod";
 import { requireAuth } from "../../middlewares/auth";
 import { z } from "zod";
@@ -73,7 +73,25 @@ Guidelines:
 - Be concise — farmers are busy people
 - If asked about something outside farming/plants, politely redirect to your specialty`;
 
-// ─── Schemas ──────────────────────────────────────────────────────────────────
+const SUPPORT_SYSTEM_INSTRUCTION = `You are Ardana's customer support assistant. You are friendly, clear, and solution-focused.
+
+You help users with:
+- How to use Ardana's features (plant tracking, reminders, AI tools, dashboard)
+- Troubleshooting issues with the app
+- Understanding AI analysis results (plant identification, disease detection)
+- Account and data management questions
+- Interpreting weather recommendations
+- Setting up watering and fertilizing schedules
+- Understanding reminder notifications
+
+Guidelines:
+- Be concise and direct — give step-by-step instructions when relevant
+- If the user reports a bug or technical issue, acknowledge it, explain a workaround if possible, and suggest contacting the team
+- Do not make up features that do not exist; be honest about limitations
+- Always end with "Is there anything else I can help you with?"
+- Stay focused on Ardana and farming topics`;
+
+// ─── Shared schemas ───────────────────────────────────────────────────────────
 
 const ChatHistoryMessage = z.object({
   role: z.enum(["user", "model"]),
@@ -89,100 +107,142 @@ const ChatBody = z.object({
   mimeType: z.string().optional(),
 });
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
+const SupportBody = z.object({
+  history: z.array(ChatHistoryMessage).max(20),
+  message: z.string().min(1, "Message cannot be empty").max(2000),
+});
 
-router.post("/ai/identify-plant", async (req, res): Promise<void> => {
+// ─── Error translation ────────────────────────────────────────────────────────
+
+function translateAiError(err: unknown, agentLabel: string): { status: number; message: string } {
+  const msg = err instanceof Error ? err.message : "Unknown error";
+  if (msg.includes("API_KEY_INVALID") || msg.includes("API key not valid")) {
+    return { status: 503, message: `${agentLabel} API key is invalid. Please contact the administrator.` };
+  }
+  if (msg.includes("RESOURCE_EXHAUSTED") || msg.includes("quota")) {
+    return { status: 429, message: "AI request limit reached. Please wait a moment and try again." };
+  }
+  if (msg.includes("SAFETY")) {
+    return { status: 400, message: "Your input was flagged by safety filters. Please rephrase it." };
+  }
+  if (msg.includes("is not configured")) {
+    return { status: 503, message: `${agentLabel} is not configured. Please add the API key in environment settings.` };
+  }
+  if (msg.includes("DEADLINE_EXCEEDED") || msg.includes("timeout")) {
+    return { status: 504, message: "The AI took too long to respond. Please try again." };
+  }
+  return { status: 500, message: `AI error: ${msg}` };
+}
+
+// ─── Agent 2: Plant Identification ────────────────────────────────────────────
+
+router.post("/ai/identify-plant", async (req, res) => {
   const parsed = IdentifyPlantBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+    res.status(400).json({ error: "Invalid request: " + parsed.error.issues[0]?.message });
     return;
   }
 
+  const { imageBase64, mimeType } = parsed.data;
+
   try {
-    const model = getGeminiModel("gemini-2.5-flash");
+    const model = getVisionModel();
     const result = await model.generateContent([
-      { inlineData: { data: parsed.data.imageBase64, mimeType: parsed.data.mimeType } },
-      IDENTIFY_PROMPT,
+      { inlineData: { data: imageBase64, mimeType } },
+      { text: IDENTIFY_PROMPT },
     ]);
 
-    const text = result.response.text().trim();
-    const cleaned = text.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
-    const json = JSON.parse(cleaned);
-    res.json(json);
-  } catch (err: unknown) {
+    const raw = result.response.text().trim();
+    const jsonText = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch {
+      req.log.warn({ raw }, "Plant ID: failed to parse JSON from AI");
+      res.status(502).json({ error: "AI returned an unexpected format. Please try again." });
+      return;
+    }
+
+    res.json(parsed);
+  } catch (err) {
     req.log.error({ err }, "Plant identification failed");
-    const message = err instanceof Error ? err.message : "Unknown error";
-    res.json({
-      species: null, commonName: null, family: null, confidence: null,
-      description: null, wateringRequirements: null, growingConditions: null,
-      fertilizers: null, careRecommendations: null, sunlight: null, soilType: null,
-      suggestedWateringIntervalDays: null, suggestedFertilizingIntervalDays: null,
-      error: `Analysis failed: ${message}`,
-    });
+    const { status, message } = translateAiError(err, "Vision AI");
+    res.status(status).json({ error: message });
   }
 });
 
-router.post("/ai/detect-disease", async (req, res): Promise<void> => {
+// ─── Agent 2: Disease Detection ───────────────────────────────────────────────
+
+router.post("/ai/detect-disease", async (req, res) => {
   const parsed = DetectDiseaseBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+    res.status(400).json({ error: "Invalid request: " + parsed.error.issues[0]?.message });
     return;
   }
 
+  const { imageBase64, mimeType } = parsed.data;
+
   try {
-    const model = getGeminiModel("gemini-2.5-flash");
+    const model = getVisionModel();
     const result = await model.generateContent([
-      { inlineData: { data: parsed.data.imageBase64, mimeType: parsed.data.mimeType } },
-      DISEASE_PROMPT,
+      { inlineData: { data: imageBase64, mimeType } },
+      { text: DISEASE_PROMPT },
     ]);
 
-    const text = result.response.text().trim();
-    const cleaned = text.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
-    const json = JSON.parse(cleaned);
-    res.json(json);
-  } catch (err: unknown) {
+    const raw = result.response.text().trim();
+    const jsonText = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+
+    let parsed: Record<string, unknown>;
+    try {
+      parsed = JSON.parse(jsonText);
+    } catch {
+      req.log.warn({ raw }, "Disease detection: failed to parse JSON from AI");
+      res.status(502).json({ error: "AI returned an unexpected format. Please try again." });
+      return;
+    }
+
+    res.json(parsed);
+  } catch (err) {
     req.log.error({ err }, "Disease detection failed");
-    const message = err instanceof Error ? err.message : "Unknown error";
-    res.json({
-      isHealthy: false, diseaseName: null, confidence: null, description: null,
-      causes: null, symptoms: null, treatments: null, products: null,
-      preventiveMeasures: null, urgency: null,
-      error: `Analysis failed: ${message}`,
-    });
+    const { status, message } = translateAiError(err, "Vision AI");
+    res.status(status).json({ error: message });
   }
 });
 
-router.post("/ai/chat", async (req, res): Promise<void> => {
+// ─── Agent 1: AI Chat Assistant ───────────────────────────────────────────────
+
+router.post("/ai/chat", async (req, res) => {
   const parsed = ChatBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
+    res.status(400).json({ error: "Invalid request: " + parsed.error.issues[0]?.message });
     return;
   }
 
   const { history, message, imageBase64, mimeType } = parsed.data;
 
   try {
-    const model = getGeminiModel("gemini-2.5-flash");
+    const model = getChatModel();
 
-    // Build Gemini conversation history from prior turns
+    // Rebuild conversation history for Gemini
     const geminiHistory = history.map((msg) => ({
       role: msg.role,
       parts: [
-        ...(msg.role === "user" && msg.imageBase64 && msg.mimeType
+        ...(msg.imageBase64 && msg.mimeType
           ? [{ inlineData: { data: msg.imageBase64, mimeType: msg.mimeType } }]
           : []),
         { text: msg.text },
       ],
     }));
 
-    // Embed system context as the first exchange in history (most SDK-compatible approach)
+    // Inject system instruction as the first exchange
     const systemHistory = [
       {
-        role: "user",
+        role: "user" as const,
         parts: [{ text: "Please act as an expert farming and plant care AI assistant." }],
       },
       {
-        role: "model",
+        role: "model" as const,
         parts: [{ text: CHAT_SYSTEM_INSTRUCTION }],
       },
     ];
@@ -191,7 +251,6 @@ router.post("/ai/chat", async (req, res): Promise<void> => {
       history: [...systemHistory, ...geminiHistory],
     });
 
-    // Current user message parts (text + optional image)
     const messageParts = [
       ...(imageBase64 && mimeType
         ? [{ inlineData: { data: imageBase64, mimeType } }]
@@ -208,22 +267,60 @@ router.post("/ai/chat", async (req, res): Promise<void> => {
     }
 
     res.json({ reply });
-  } catch (err: unknown) {
+  } catch (err) {
     req.log.error({ err }, "AI chat failed");
-    const errMessage = err instanceof Error ? err.message : "Unknown error";
+    const { status, message: errMsg } = translateAiError(err, "Chat AI");
+    res.status(status).json({ error: errMsg });
+  }
+});
 
-    // Translate common Gemini error messages into user-friendly ones
-    if (errMessage.includes("API_KEY_INVALID") || errMessage.includes("API key not valid")) {
-      res.status(503).json({ error: "The AI service is not configured. Please contact the administrator." });
-    } else if (errMessage.includes("RESOURCE_EXHAUSTED") || errMessage.includes("quota")) {
-      res.status(429).json({ error: "AI request limit reached. Please wait a moment and try again." });
-    } else if (errMessage.includes("SAFETY")) {
-      res.status(400).json({ error: "Your message was flagged by safety filters. Please rephrase it." });
-    } else if (errMessage.includes("GEMINI_API_KEY is not configured")) {
-      res.status(503).json({ error: "AI features require a GEMINI_API_KEY. Please configure it in the environment settings." });
-    } else {
-      res.status(500).json({ error: `AI assistant error: ${errMessage}` });
+// ─── Agent 3: Contact Support ─────────────────────────────────────────────────
+
+router.post("/ai/support", async (req, res) => {
+  const parsed = SupportBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request: " + parsed.error.issues[0]?.message });
+    return;
+  }
+
+  const { history, message } = parsed.data;
+
+  try {
+    const model = getSupportModel();
+
+    const geminiHistory = history.map((msg) => ({
+      role: msg.role,
+      parts: [{ text: msg.text }],
+    }));
+
+    const systemHistory = [
+      {
+        role: "user" as const,
+        parts: [{ text: "Please act as Ardana's customer support assistant." }],
+      },
+      {
+        role: "model" as const,
+        parts: [{ text: SUPPORT_SYSTEM_INSTRUCTION }],
+      },
+    ];
+
+    const chat = model.startChat({
+      history: [...systemHistory, ...geminiHistory],
+    });
+
+    const result = await chat.sendMessage([{ text: message }]);
+    const reply = result.response.text().trim();
+
+    if (!reply) {
+      res.status(502).json({ error: "No response from support AI. Please try again." });
+      return;
     }
+
+    res.json({ reply });
+  } catch (err) {
+    req.log.error({ err }, "Support AI failed");
+    const { status, message: errMsg } = translateAiError(err, "Support AI");
+    res.status(status).json({ error: errMsg });
   }
 });
 

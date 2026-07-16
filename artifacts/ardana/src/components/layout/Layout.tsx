@@ -1,7 +1,6 @@
 import React from 'react';
 import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
-import { useLanguage } from '@/lib/contexts/LanguageContext';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
@@ -10,7 +9,7 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const { isRTL } = useLanguage();
+  // Language only affects nav labels — layout stays LTR
 
   return (
     <div className="min-h-[100dvh] bg-background text-foreground font-sans">
@@ -18,7 +17,7 @@ export function Layout({ children }: LayoutProps) {
       <MobileNav />
       <main className={cn(
         "flex flex-col min-h-[100dvh] pb-16 md:pb-0 pt-16 md:pt-0 transition-all duration-300",
-        isRTL ? "md:pr-64" : "md:pl-64"
+        "md:pl-64"
       )}>
         <motion.div 
           initial={{ opacity: 0, y: 10 }}

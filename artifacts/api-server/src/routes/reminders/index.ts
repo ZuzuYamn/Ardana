@@ -8,11 +8,15 @@ import {
   DeleteReminderParams,
   ListRemindersQueryParams,
 } from "@workspace/api-zod";
+import { requireAuth } from "../../middlewares/auth";
 
 const router: IRouter = Router();
 
-// GET /reminders
+router.use(requireAuth);
+
+// GET /reminders — only returns reminders for the authenticated user's plants
 router.get("/reminders", async (req, res): Promise<void> => {
+  const userId = req.session.userId!;
   const params = ListRemindersQueryParams.safeParse(req.query);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -25,7 +29,6 @@ router.get("/reminders", async (req, res): Promise<void> => {
     .toISOString()
     .split("T")[0];
 
-  // Join with plants to get plantName
   const rows = await db
     .select({
       id: remindersTable.id,
@@ -38,7 +41,10 @@ router.get("/reminders", async (req, res): Promise<void> => {
       createdAt: remindersTable.createdAt,
     })
     .from(remindersTable)
-    .leftJoin(plantsTable, eq(remindersTable.plantId, plantsTable.id));
+    .innerJoin(
+      plantsTable,
+      and(eq(remindersTable.plantId, plantsTable.id), eq(plantsTable.userId, userId))
+    );
 
   let results = rows.map((r) => ({ ...r, plantName: r.plantName ?? "Unknown" }));
 
@@ -55,24 +61,24 @@ router.get("/reminders", async (req, res): Promise<void> => {
     );
   }
 
-  // Sort: overdue first, then by date
   results.sort((a, b) => a.scheduledDate.localeCompare(b.scheduledDate));
-
   res.json(results);
 });
 
 // POST /reminders
 router.post("/reminders", async (req, res): Promise<void> => {
+  const userId = req.session.userId!;
   const parsed = CreateReminderBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
 
+  // Verify the plant belongs to this user
   const [plant] = await db
     .select()
     .from(plantsTable)
-    .where(eq(plantsTable.id, parsed.data.plantId));
+    .where(and(eq(plantsTable.id, parsed.data.plantId), eq(plantsTable.userId, userId)));
 
   if (!plant) {
     res.status(404).json({ error: "Plant not found" });
@@ -94,6 +100,7 @@ router.post("/reminders", async (req, res): Promise<void> => {
 
 // PATCH /reminders/:id
 router.patch("/reminders/:id", async (req, res): Promise<void> => {
+  const userId = req.session.userId!;
   const params = UpdateReminderParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -106,13 +113,13 @@ router.patch("/reminders/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [reminder] = await db
-    .update(remindersTable)
-    .set(parsed.data)
-    .where(eq(remindersTable.id, params.data.id))
-    .returning();
+  // Verify ownership through plant
+  const [existing] = await db
+    .select({ plantId: remindersTable.plantId })
+    .from(remindersTable)
+    .where(eq(remindersTable.id, params.data.id));
 
-  if (!reminder) {
+  if (!existing) {
     res.status(404).json({ error: "Reminder not found" });
     return;
   }
@@ -120,29 +127,52 @@ router.patch("/reminders/:id", async (req, res): Promise<void> => {
   const [plant] = await db
     .select()
     .from(plantsTable)
-    .where(eq(plantsTable.id, reminder.plantId));
+    .where(and(eq(plantsTable.id, existing.plantId), eq(plantsTable.userId, userId)));
 
-  res.json({ ...reminder, plantName: plant?.name ?? "Unknown" });
+  if (!plant) {
+    res.status(403).json({ error: "Access denied" });
+    return;
+  }
+
+  const [reminder] = await db
+    .update(remindersTable)
+    .set(parsed.data)
+    .where(eq(remindersTable.id, params.data.id))
+    .returning();
+
+  res.json({ ...reminder, plantName: plant.name });
 });
 
 // DELETE /reminders/:id
 router.delete("/reminders/:id", async (req, res): Promise<void> => {
+  const userId = req.session.userId!;
   const params = DeleteReminderParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
-  const [reminder] = await db
-    .delete(remindersTable)
-    .where(eq(remindersTable.id, params.data.id))
-    .returning();
+  const [existing] = await db
+    .select({ plantId: remindersTable.plantId })
+    .from(remindersTable)
+    .where(eq(remindersTable.id, params.data.id));
 
-  if (!reminder) {
+  if (!existing) {
     res.status(404).json({ error: "Reminder not found" });
     return;
   }
 
+  const [plant] = await db
+    .select()
+    .from(plantsTable)
+    .where(and(eq(plantsTable.id, existing.plantId), eq(plantsTable.userId, userId)));
+
+  if (!plant) {
+    res.status(403).json({ error: "Access denied" });
+    return;
+  }
+
+  await db.delete(remindersTable).where(eq(remindersTable.id, params.data.id));
   res.sendStatus(204);
 });
 

@@ -1,45 +1,84 @@
-import React from 'react';
-import { useLanguage } from '@/lib/contexts/LanguageContext';
-import { useGetPlantDashboard, useGetWeather, useListReminders } from '@workspace/api-client-react';
-import { Leaf, Sprout, AlertCircle, Droplets, ArrowRight, CloudSun, CalendarClock, Activity, ScanSearch, Stethoscope } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
-import { Link } from 'wouter';
-import { motion } from 'framer-motion';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import React from "react";
+import { useLanguage } from "@/lib/contexts/LanguageContext";
+import { useAuth } from "@/lib/contexts/AuthContext";
+import {
+  useGetPlantDashboard,
+  useGetWeather,
+  useListReminders,
+} from "@workspace/api-client-react";
+import {
+  Leaf,
+  Sprout,
+  AlertCircle,
+  Droplets,
+  ArrowRight,
+  CloudSun,
+  CalendarClock,
+  Activity,
+  ScanSearch,
+  Stethoscope,
+  Plus,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
+import { motion } from "framer-motion";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
-  const { t, isRTL } = useLanguage();
-  
+  const { user } = useAuth();
+  const { t } = useLanguage();
+
   const { data: stats, isLoading: statsLoading } = useGetPlantDashboard();
-  const { data: weather, isLoading: weatherLoading } = useGetWeather({ lat: 33.89, lon: 35.50 });
-  const { data: reminders, isLoading: remindersLoading } = useListReminders({ upcoming: 'true' });
+  const { data: weather, isLoading: weatherLoading } = useGetWeather({
+    lat: 33.89,
+    lon: 35.5,
+  });
+  const { data: reminders, isLoading: remindersLoading } = useListReminders({
+    upcoming: "true",
+  });
 
   const container = {
     hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: { staggerChildren: 0.1 }
-    }
+    show: { opacity: 1, transition: { staggerChildren: 0.1 } },
   };
 
   const item = {
     hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 }
+    show: { opacity: 1, y: 0 },
   };
+
+  const typeLabels: Record<string, string> = {
+    watering: t("reminders.type_watering"),
+    fertilizing: t("reminders.type_fertilizing"),
+    pruning: t("reminders.type_pruning"),
+    spraying: t("reminders.type_spraying"),
+    harvesting: t("reminders.type_harvesting"),
+    other: t("reminders.type_other"),
+  };
+
+  const firstName = user?.name?.split(" ")[0] ?? t("dashboard.default_name");
 
   return (
     <div className="space-y-8 pb-12">
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl md:text-4xl font-serif font-bold text-foreground tracking-tight">
-          {t('dashboard.welcome')}
+          {t("dashboard.welcome", { name: firstName })}
         </h1>
-        <p className="text-muted-foreground text-lg">{t('dashboard.subtitle')}</p>
+        <p className="text-muted-foreground text-lg">
+          {t("dashboard.subtitle")}
+        </p>
       </div>
 
-      <motion.div 
+      <motion.div
         variants={container}
         initial="hidden"
         animate="show"
@@ -50,9 +89,15 @@ export default function Dashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Total Plants</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {t("dashboard.total_plants")}
+                  </p>
                   <p className="text-3xl font-serif font-bold text-primary">
-                    {statsLoading ? <Skeleton className="h-8 w-16" /> : stats?.totalPlants || 0}
+                    {statsLoading ? (
+                      <Skeleton className="h-8 w-16" />
+                    ) : (
+                      stats?.totalPlants || 0
+                    )}
                   </p>
                 </div>
                 <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -68,9 +113,15 @@ export default function Dashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Needs Attention</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {t("dashboard.needs_attention")}
+                  </p>
                   <p className="text-3xl font-serif font-bold text-destructive">
-                    {statsLoading ? <Skeleton className="h-8 w-16" /> : stats?.needsAttention || 0}
+                    {statsLoading ? (
+                      <Skeleton className="h-8 w-16" />
+                    ) : (
+                      stats?.needsAttention || 0
+                    )}
                   </p>
                 </div>
                 <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
@@ -86,13 +137,20 @@ export default function Dashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Upcoming Reminders</p>
-                  <p className="text-3xl font-serif font-bold text-accent-foreground">
-                    {statsLoading ? <Skeleton className="h-8 w-16" /> : stats?.upcomingRemindersCount || 0}
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {t("dashboard.upcoming_tasks")}
+                  </p>
+                  <p className="text-3xl font-serif font-bold text-amber-600">
+                    {statsLoading ? (
+                      <Skeleton className="h-8 w-16" />
+                    ) : (
+                      (stats?.upcomingRemindersCount || 0) +
+                      (stats?.overdueRemindersCount || 0)
+                    )}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center">
-                  <CalendarClock className="w-6 h-6 text-accent-foreground" />
+                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                  <CalendarClock className="w-6 h-6 text-amber-600" />
                 </div>
               </div>
             </CardContent>
@@ -104,13 +162,19 @@ export default function Dashboard() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">Recently Watered</p>
-                  <p className="text-3xl font-serif font-bold text-secondary">
-                    {statsLoading ? <Skeleton className="h-8 w-16" /> : stats?.recentlyWatered || 0}
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {t("dashboard.recently_watered")}
+                  </p>
+                  <p className="text-3xl font-serif font-bold text-blue-600">
+                    {statsLoading ? (
+                      <Skeleton className="h-8 w-16" />
+                    ) : (
+                      stats?.recentlyWatered || 0
+                    )}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center">
-                  <Droplets className="w-6 h-6 text-secondary" />
+                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                  <Droplets className="w-6 h-6 text-blue-600" />
                 </div>
               </div>
             </CardContent>
@@ -118,208 +182,220 @@ export default function Dashboard() {
         </motion.div>
       </motion.div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-        <div className="col-span-1 lg:col-span-2 space-y-6">
-          <Card className="shadow-md border-border overflow-hidden rounded-2xl">
-            <CardHeader className="bg-muted/30 pb-4 border-b">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-foreground">
-                  <Sprout className="w-5 h-5 text-primary" />
-                  <CardTitle className="font-serif">Farm Overview</CardTitle>
-                </div>
-                <Link href="/plants" className="text-sm text-primary font-medium hover:underline flex items-center gap-1">
-                  View All {isRTL ? <ArrowRight className="w-4 h-4 rotate-180" /> : <ArrowRight className="w-4 h-4" />}
-                </Link>
+      {/* Quick add + Reminders + Weather */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Upcoming Reminders */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="lg:col-span-2"
+        >
+          <Card className="shadow-md border-border rounded-2xl h-full">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="font-serif">
+                  {t("dashboard.upcoming_reminders")}
+                </CardTitle>
+                <CardDescription>
+                  {t("dashboard.reminders_subtitle")}
+                </CardDescription>
               </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {statsLoading ? (
-                <div className="p-6 space-y-4">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-12 w-full" />
-                </div>
-              ) : stats && stats.totalPlants > 0 ? (
-                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">By Type</h4>
-                    <div className="space-y-3">
-                      {Object.entries(stats.byType).map(([type, count]) => (
-                        <div key={type} className="flex items-center justify-between">
-                          <span className="capitalize text-foreground font-medium">{type}</span>
-                          <span className="bg-primary/10 text-primary px-2.5 py-0.5 rounded-full text-sm font-bold">{count}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wider">Health Status</h4>
-                    <div className="space-y-3">
-                      {Object.entries(stats.byHealth).map(([status, count]) => (
-                        <div key={status} className="flex items-center justify-between">
-                          <span className="capitalize text-foreground font-medium">{status}</span>
-                          <span className={cn(
-                            "px-2.5 py-0.5 rounded-full text-sm font-bold",
-                            status === 'healthy' ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
-                            status === 'poor' ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
-                            "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                          )}>
-                            {count}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-12 text-center flex flex-col items-center">
-                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                    <Leaf className="w-8 h-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-lg font-serif font-semibold mb-2">No plants yet</h3>
-                  <p className="text-muted-foreground mb-6 max-w-sm">Your farmbook is empty. Add your first crop, plant, or tree to start managing your land.</p>
-                  <Link href="/plants/new" className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2">
-                    Add Your First Plant
-                  </Link>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-md border-border rounded-2xl">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-foreground">
-                  <Activity className="w-5 h-5 text-accent-foreground" />
-                  <CardTitle className="font-serif">Upcoming Tasks</CardTitle>
-                </div>
-                <Link href="/reminders" className="text-sm text-primary font-medium hover:underline flex items-center gap-1">
-                  View Schedule {isRTL ? <ArrowRight className="w-4 h-4 rotate-180" /> : <ArrowRight className="w-4 h-4" />}
-                </Link>
-              </div>
+              <Link href="/reminders">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1 text-muted-foreground hover:text-foreground"
+                >
+                  {t("dashboard.view_all")} <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
             </CardHeader>
             <CardContent>
               {remindersLoading ? (
-                 <div className="space-y-4">
-                 <Skeleton className="h-16 w-full" />
-                 <Skeleton className="h-16 w-full" />
-               </div>
-              ) : reminders && reminders.length > 0 ? (
                 <div className="space-y-3">
-                  {reminders.slice(0, 4).map(reminder => (
-                    <div key={reminder.id} className="flex items-center gap-4 p-3 rounded-xl border bg-card hover:bg-muted/50 transition-colors">
-                      <div className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center",
-                        reminder.type === 'watering' ? 'bg-blue-100 text-blue-600' :
-                        reminder.type === 'fertilizing' ? 'bg-amber-100 text-amber-600' :
-                        reminder.type === 'pruning' ? 'bg-green-100 text-green-600' :
-                        'bg-slate-100 text-slate-600'
-                      )}>
-                        {reminder.type === 'watering' ? <Droplets className="w-5 h-5" /> : <Sprout className="w-5 h-5" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-foreground truncate">{reminder.plantName}</p>
-                        <p className="text-xs text-muted-foreground capitalize">{reminder.type}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium">{format(new Date(reminder.scheduledDate), 'MMM d')}</p>
-                      </div>
-                    </div>
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-14 w-full rounded-xl" />
                   ))}
                 </div>
+              ) : reminders && reminders.length > 0 ? (
+                <div className="space-y-2">
+                  {reminders.slice(0, 5).map((reminder) => {
+                    const isOverdue =
+                      reminder.scheduledDate <
+                      new Date().toISOString().split("T")[0];
+                    const typeColors: Record<string, string> = {
+                      watering: "bg-blue-100 text-blue-700",
+                      fertilizing: "bg-green-100 text-green-700",
+                      pruning: "bg-orange-100 text-orange-700",
+                      default: "bg-gray-100 text-gray-700",
+                    };
+                    const colorClass =
+                      typeColors[reminder.type] ?? typeColors.default;
+                    return (
+                      <div
+                        key={reminder.id}
+                        className={cn(
+                          "flex items-center gap-3 p-3 rounded-xl border transition-colors",
+                          isOverdue
+                            ? "border-destructive/30 bg-destructive/5"
+                            : "border-border bg-background",
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "text-xs px-2 py-1 rounded-md font-semibold capitalize",
+                            colorClass,
+                          )}
+                        >
+                          {typeLabels[reminder.type] ?? reminder.type}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {reminder.plantName}
+                          </p>
+                          <p
+                            className={cn(
+                              "text-xs",
+                              isOverdue
+                                ? "text-destructive font-medium"
+                                : "text-muted-foreground",
+                            )}
+                          >
+                            {isOverdue ? t("dashboard.overdue_prefix") : ""}
+                            {format(
+                              new Date(reminder.scheduledDate + "T12:00:00"),
+                              "MMM d, yyyy",
+                            )}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               ) : (
-                <div className="py-8 text-center text-muted-foreground">
-                  <p>No upcoming tasks. Enjoy your day!</p>
+                <div className="py-8 text-center">
+                  <CalendarClock className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    {t("dashboard.no_reminders")}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("dashboard.no_reminders_desc")}
+                  </p>
                 </div>
               )}
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
 
-        <div className="col-span-1 space-y-6">
-          <Card className="bg-gradient-to-br from-secondary to-sidebar text-secondary-foreground shadow-lg overflow-hidden border-none rounded-2xl relative">
-            {/* Decorative background circle */}
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
-            
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 font-serif text-white">
-                <CloudSun className="w-5 h-5" />
-                Local Weather
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {weatherLoading ? (
-                <div className="space-y-4">
-                  <Skeleton className="h-10 w-1/2 bg-white/20" />
-                  <Skeleton className="h-4 w-full bg-white/20" />
-                  <Skeleton className="h-20 w-full bg-white/20 mt-4" />
+        {/* Right column: Weather + Tools */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="space-y-4"
+        >
+          {/* Quick add */}
+          <Link href="/plants/new">
+            <Card className="shadow-sm border-primary/30 rounded-2xl bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer group">
+              <CardContent className="p-5 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <Plus className="w-5 h-5" />
                 </div>
-              ) : weather ? (
                 <div>
-                  <div className="flex items-end justify-between mb-4">
-                    <div>
-                      <p className="text-5xl font-bold font-serif text-white">{weather.current.temperature}°</p>
-                      <p className="text-secondary-foreground/80 font-medium capitalize mt-1">
-                        {weather.current.weatherDescription}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-secondary-foreground/80">{weather.locationName}</p>
-                      <p className="text-xs text-secondary-foreground/60 mt-1">H: {weather.current.humidity}% W: {weather.current.windSpeed}km/h</p>
-                    </div>
+                  <p className="font-semibold text-sm">
+                    {t("plant_new.title")}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("dashboard.quick_add_desc")}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Weather */}
+          <Card className="shadow-md border-border rounded-2xl overflow-hidden">
+            <div className="bg-gradient-to-br from-slate-700 to-slate-900 text-white p-5">
+              <CardTitle className="text-white font-serif text-base mb-3 flex items-center gap-2">
+                <CloudSun className="w-5 h-5" />{" "}
+                {t("dashboard.current_weather")}
+              </CardTitle>
+              {weatherLoading ? (
+                <Skeleton className="h-16 bg-white/10" />
+              ) : weather ? (
+                <div className="space-y-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold">
+                      {Math.round(weather.current.temperature)}°C
+                    </span>
+                    <span className="text-white/70 text-sm">
+                      {weather.current.weatherDescription}
+                    </span>
                   </div>
-                  
-                  <div className="bg-black/20 rounded-xl p-4 mt-6 backdrop-blur-sm">
-                    <div className="flex items-start gap-3">
-                      <Leaf className="w-5 h-5 text-accent shrink-0 mt-0.5" />
-                      <p className="text-sm leading-relaxed text-white/90">
-                        {weather.recommendation}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4 text-center">
-                    <Link href="/weather" className="text-xs font-medium text-white/70 hover:text-white hover:underline transition-colors">
-                      View full forecast
+                  <p className="text-white/60 text-xs">
+                    {weather.recommendation}
+                  </p>
+                  <div className="mt-3 text-center">
+                    <Link
+                      href="/weather"
+                      className="text-xs font-medium text-white/70 hover:text-white hover:underline"
+                    >
+                      {t("dashboard.view_forecast")}
                     </Link>
                   </div>
                 </div>
               ) : (
-                <div className="py-6 text-center text-white/70">
-                  <p>Weather data unavailable.</p>
-                </div>
+                <p className="text-white/70 text-sm">
+                  {t("dashboard.weather_unavailable")}
+                </p>
               )}
-            </CardContent>
+            </div>
           </Card>
 
+          {/* AI Tools */}
           <Card className="shadow-md border-border rounded-2xl">
-            <CardHeader>
-              <CardTitle className="font-serif">Ardana Tools</CardTitle>
-              <CardDescription>Smart AI assistance for your farm</CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle className="font-serif text-base">
+                {t("dashboard.ai_tools")}
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Link href="/ai/identify" className="flex items-center gap-3 p-3 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors group">
-                <div className="w-10 h-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center">
-                  <ScanSearch className="w-5 h-5" />
+            <CardContent className="space-y-2 pt-0">
+              <Link
+                href="/ai/identify"
+                className="flex items-center gap-3 p-3 rounded-xl border border-primary/20 bg-primary/5 hover:bg-primary/10 transition-colors group"
+              >
+                <div className="w-9 h-9 rounded-lg bg-primary text-primary-foreground flex items-center justify-center">
+                  <ScanSearch className="w-4 h-4" />
                 </div>
-                <div className="flex-1">
-                  <h4 className="font-medium text-foreground group-hover:text-primary transition-colors">Identify Plant</h4>
-                  <p className="text-xs text-muted-foreground">Take a photo to know the species</p>
+                <div>
+                  <p className="font-medium text-sm group-hover:text-primary transition-colors">
+                    {t("dashboard.identify_plant")}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("dashboard.identify_desc")}
+                  </p>
                 </div>
               </Link>
-              
-              <Link href="/ai/disease" className="flex items-center gap-3 p-3 rounded-xl border border-accent/30 bg-accent/5 hover:bg-accent/10 transition-colors group">
-                <div className="w-10 h-10 rounded-lg bg-accent text-accent-foreground flex items-center justify-center">
-                  <Stethoscope className="w-5 h-5" />
+              <Link
+                href="/ai/disease"
+                className="flex items-center gap-3 p-3 rounded-xl border border-accent/30 bg-accent/5 hover:bg-accent/10 transition-colors group"
+              >
+                <div className="w-9 h-9 rounded-lg bg-accent text-accent-foreground flex items-center justify-center">
+                  <Stethoscope className="w-4 h-4" />
                 </div>
-                <div className="flex-1">
-                  <h4 className="font-medium text-foreground group-hover:text-accent-foreground transition-colors">Detect Disease</h4>
-                  <p className="text-xs text-muted-foreground">Scan leaves for health issues</p>
+                <div>
+                  <p className="font-medium text-sm group-hover:text-accent-foreground transition-colors">
+                    {t("dashboard.detect_disease")}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("dashboard.detect_desc")}
+                  </p>
                 </div>
               </Link>
             </CardContent>
           </Card>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

@@ -1,295 +1,613 @@
-import React, { useState } from 'react';
-import { useCreatePlant } from '@workspace/api-client-react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useLocation } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { ArrowLeft, Leaf, Image as ImageIcon, Loader2 } from 'lucide-react';
+import {
+  ArrowLeft, Camera, ImagePlus, Leaf, Loader2, CheckCircle2,
+  Droplets, Sparkles, FlaskConical, AlertTriangle, X, Sun, Trees,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'wouter';
+import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 
-const formSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface PlantIdentification {
+  commonName: string | null;
+  species: string | null;
+  family: string | null;
+  confidence: string | null;
+  description: string | null;
+  wateringRequirements: string | null;
+  growingConditions: string | null;
+  fertilizers: string | null;
+  careRecommendations: string | null;
+  sunlight: string | null;
+  soilType: string | null;
+  suggestedWateringIntervalDays: number | null;
+  suggestedFertilizingIntervalDays: number | null;
+  error: string | null;
+}
+
+interface DiseaseDetection {
+  isHealthy: boolean;
+  diseaseName: string | null;
+  confidence: string | null;
+  description: string | null;
+  treatments: string | null;
+  urgency: string | null;
+  error: string | null;
+}
+
+interface AIResults {
+  identification: PlantIdentification;
+  disease: DiseaseDetection;
+}
+
+// ─── Image Compression ────────────────────────────────────────────────────────
+
+async function compressImage(file: File, maxWidth = 1024): Promise<{ dataUrl: string; base64: string; mimeType: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        resolve({ dataUrl, base64: dataUrl.split(',')[1], mimeType: 'image/jpeg' });
+      };
+      img.onerror = reject;
+      img.src = e.target!.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ─── Form Schema ──────────────────────────────────────────────────────────────
+
+const buildFormSchema = (t: (key: string) => string) => z.object({
+  name: z.string().min(1, t('plant_new.name_required')),
+  type: z.string().min(1, t('plant_new.type_required')),
   species: z.string().optional(),
-  type: z.string().min(1, "Type is required"),
   location: z.string().optional(),
   plantedDate: z.string().optional(),
-  healthStatus: z.string().default("healthy"),
-  wateringIntervalDays: z.coerce.number().min(1).optional().or(z.literal("")),
-  fertilizingIntervalDays: z.coerce.number().min(1).optional().or(z.literal("")),
+  healthStatus: z.string().default('unknown'),
+  wateringIntervalDays: z.coerce.number().int().positive().optional().or(z.literal('')),
+  fertilizingIntervalDays: z.coerce.number().int().positive().optional().or(z.literal('')),
   notes: z.string().optional(),
-  photoUrl: z.string().url().optional().or(z.literal("")),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<ReturnType<typeof buildFormSchema>>;
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function PlantNew() {
-  const [, setLocation] = useLocation();
+  const [, navigate] = useLocation();
   const { toast } = useToast();
-  const createPlant = useCreatePlant();
+  const { t } = useLanguage();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [imageData, setImageData] = useState<{ dataUrl: string; base64: string; mimeType: string } | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [aiResults, setAiResults] = useState<AIResults | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(buildFormSchema(t)),
     defaultValues: {
       name: '',
-      species: '',
       type: 'plant',
+      species: '',
       location: '',
       plantedDate: new Date().toISOString().split('T')[0],
-      healthStatus: 'healthy',
+      healthStatus: 'unknown',
       notes: '',
-      photoUrl: '',
     },
   });
 
-  const onSubmit = (data: FormValues) => {
-    // Clean up empty string number fields
-    const payload = {
-      ...data,
-      wateringIntervalDays: data.wateringIntervalDays === "" ? undefined : Number(data.wateringIntervalDays),
-      fertilizingIntervalDays: data.fertilizingIntervalDays === "" ? undefined : Number(data.fertilizingIntervalDays),
-      photoUrl: data.photoUrl === "" ? undefined : data.photoUrl,
-    };
+  // ── Image Selection & AI Analysis ─────────────────────────────────────────
 
-    createPlant.mutate({ data: payload }, {
-      onSuccess: (newPlant) => {
-        toast({
-          title: "Plant added",
-          description: `${newPlant.name} has been added to your farm.`,
-        });
-        setLocation(`/plants/${newPlant.id}`);
-      },
-      onError: (error) => {
-        toast({
-          title: "Error",
-          description: "Failed to add plant. Please try again.",
-          variant: "destructive",
-        });
+  const handleImageChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const compressed = await compressImage(file);
+      setImageData(compressed);
+      setAiResults(null);
+
+      // Auto-analyze immediately
+      setIsAnalyzing(true);
+      try {
+        const [identifyRes, diseaseRes] = await Promise.all([
+          fetch('/api/ai/identify-plant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ imageBase64: compressed.base64, mimeType: compressed.mimeType }),
+          }),
+          fetch('/api/ai/detect-disease', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ imageBase64: compressed.base64, mimeType: compressed.mimeType }),
+          }),
+        ]);
+
+        const identification: PlantIdentification = await identifyRes.json();
+        const disease: DiseaseDetection = await diseaseRes.json();
+        const results: AIResults = { identification, disease };
+        setAiResults(results);
+
+        // Pre-fill form from AI results
+        if (identification.commonName) form.setValue('name', identification.commonName);
+        if (identification.species) form.setValue('species', identification.species);
+        if (identification.suggestedWateringIntervalDays) {
+          form.setValue('wateringIntervalDays', identification.suggestedWateringIntervalDays as any);
+        }
+        if (identification.suggestedFertilizingIntervalDays) {
+          form.setValue('fertilizingIntervalDays', identification.suggestedFertilizingIntervalDays as any);
+        }
+        if (!disease.isHealthy && disease.urgency === 'immediate') {
+          form.setValue('healthStatus', 'poor');
+        } else if (!disease.isHealthy) {
+          form.setValue('healthStatus', 'moderate');
+        } else if (disease.isHealthy) {
+          form.setValue('healthStatus', 'healthy');
+        }
+      } catch (err) {
+        toast({ title: t('plant_new.ai_error'), description: t('plant_new.toast_ai_failed_desc'), variant: 'destructive' });
+      } finally {
+        setIsAnalyzing(false);
       }
-    });
+    } catch {
+      toast({ title: t('plant_new.toast_image_failed_title'), description: t('plant_new.toast_image_failed_desc'), variant: 'destructive' });
+    }
+  }, [form, toast, t]);
+
+  const clearImage = () => {
+    setImageData(null);
+    setAiResults(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // ── Save ──────────────────────────────────────────────────────────────────
+
+  const onSubmit = async (data: FormValues) => {
+    setIsSaving(true);
+    try {
+      const payload = {
+        name: data.name,
+        type: data.type,
+        species: data.species || undefined,
+        location: data.location || undefined,
+        plantedDate: data.plantedDate || undefined,
+        healthStatus: data.healthStatus,
+        wateringIntervalDays: data.wateringIntervalDays === '' ? undefined : Number(data.wateringIntervalDays) || undefined,
+        fertilizingIntervalDays: data.fertilizingIntervalDays === '' ? undefined : Number(data.fertilizingIntervalDays) || undefined,
+        notes: data.notes || undefined,
+        photoDataUrl: imageData?.dataUrl,
+        imageBase64: undefined as string | undefined,
+        mimeType: undefined as string | undefined,
+        aiIdentification: aiResults ? JSON.stringify(aiResults.identification) : undefined,
+        aiDiseaseDetection: aiResults ? JSON.stringify(aiResults.disease) : undefined,
+      };
+
+      const res = await fetch('/api/plants/with-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to save plant');
+      }
+
+      const plant = await res.json();
+      const reminderSuffix = plant.remindersCreated > 0
+        ? t(plant.remindersCreated === 1 ? 'plant_new.toast_saved_reminder_one' : 'plant_new.toast_saved_reminder_other', { count: String(plant.remindersCreated) })
+        : '';
+      toast({
+        title: t('plant_new.toast_saved_title'),
+        description: `${t('plant_new.toast_saved_desc', { name: plant.name })}${reminderSuffix}.`,
+      });
+      navigate(`/plants/${plant.id}`);
+    } catch (err) {
+      toast({
+        title: t('plant_new.toast_save_failed_title'),
+        description: err instanceof Error ? err.message : t('plant_new.toast_try_again'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const confidenceColor = (c?: string | null) =>
+    c === 'high' ? 'bg-green-100 text-green-800' : c === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-700';
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div className="flex items-center gap-4 mb-8">
+    <div className="max-w-3xl mx-auto space-y-6 pb-16">
+      {/* Header */}
+      <div className="flex items-center gap-4 mb-2">
         <Link href="/plants" className="w-10 h-10 rounded-full border bg-card flex items-center justify-center hover:bg-muted transition-colors">
-          <ArrowLeft className="w-5 h-5 text-foreground" />
+          <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-3xl font-serif font-bold text-foreground">Add New Record</h1>
-          <p className="text-muted-foreground text-sm">Register a new crop or plant in your farmbook.</p>
+          <h1 className="text-3xl font-serif font-bold">{t('plant_new.title')}</h1>
+          <p className="text-muted-foreground text-sm">{t('plant_new.subtitle')}</p>
         </div>
       </div>
 
+      {/* ── Step 1: Image Upload ───────────────────────────────────────── */}
       <div className="bg-card border rounded-2xl shadow-sm overflow-hidden">
-        <div className="h-32 bg-sidebar flex items-end px-8 pb-4 relative overflow-hidden">
-          <div className="absolute inset-0 opacity-10 bg-[url('https://images.unsplash.com/photo-1464226184884-fa280b87c399?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center"></div>
-          <Leaf className="w-12 h-12 text-primary absolute right-8 top-8 opacity-20" />
-          <h2 className="text-xl font-serif font-semibold text-sidebar-foreground relative z-10">Plant Details</h2>
+        <div className="p-6 border-b">
+          <h2 className="font-serif text-lg font-semibold flex items-center gap-2">
+            <Camera className="w-5 h-5 text-primary" />
+            {t('plant_new.photo_title')}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">{t('plant_new.photo_desc')}</p>
         </div>
-        
-        <div className="p-6 md:p-8">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-foreground font-semibold">Common Name / Nickname *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Tomato Patch 1, Olive Tree" {...field} className="bg-background" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
 
-                <FormField
-                  control={form.control}
-                  name="species"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-foreground font-semibold">Species / Variety</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Solanum lycopersicum" {...field} className="bg-background" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+        <div className="p-6">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleImageChange}
+            className="hidden"
+          />
 
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-foreground font-semibold">Type *</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="bg-background">
-                            <SelectValue placeholder="Select a type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="crop">Crop</SelectItem>
-                          <SelectItem value="tree">Tree</SelectItem>
-                          <SelectItem value="plant">Plant</SelectItem>
-                          <SelectItem value="flower">Flower</SelectItem>
-                          <SelectItem value="herb">Herb</SelectItem>
-                          <SelectItem value="shrub">Shrub</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="healthStatus"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-foreground font-semibold">Initial Health</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="bg-background">
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="healthy">Healthy</SelectItem>
-                          <SelectItem value="moderate">Moderate</SelectItem>
-                          <SelectItem value="poor">Poor</SelectItem>
-                          <SelectItem value="unknown">Unknown</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-foreground font-semibold">Location</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. North Terrace, Greenhouse A" {...field} className="bg-background" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="plantedDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-foreground font-semibold">Planted Date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} className="bg-background" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+          {!imageData ? (
+            /* Upload area */
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full h-52 rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-3 group"
+            >
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <ImagePlus className="w-7 h-7 text-primary" />
               </div>
+              <div className="text-center">
+                <p className="font-medium text-foreground">{t('plant_new.upload_cta')}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t('plant_new.upload_hint')}</p>
+              </div>
+            </button>
+          ) : (
+            /* Image preview */
+            <div className="relative">
+              <img
+                src={imageData.dataUrl}
+                alt="Plant preview"
+                className="w-full h-64 object-cover rounded-xl"
+              />
+              <button
+                type="button"
+                onClick={clearImage}
+                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-3 right-3 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-medium hover:bg-black/80 transition-colors flex items-center gap-1.5"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                {t('plant_new.change_photo')}
+              </button>
+            </div>
+          )}
 
-              <div className="border-t pt-8">
-                <h3 className="text-lg font-serif font-semibold mb-4 text-foreground">Care Schedule</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="wateringIntervalDays"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-foreground font-semibold">Watering Interval (Days)</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="e.g. 2" {...field} className="bg-background" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="fertilizingIntervalDays"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-foreground font-semibold">Fertilizing Interval (Days)</FormLabel>
-                        <FormControl>
-                          <Input type="number" placeholder="e.g. 30" {...field} className="bg-background" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+          {/* AI Analysis state */}
+          <AnimatePresence>
+            {isAnalyzing && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="mt-4 rounded-xl bg-primary/5 border border-primary/20 p-4 flex items-center gap-3"
+              >
+                <Loader2 className="w-5 h-5 text-primary animate-spin flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-primary">{t('plant_new.analyzing_title')}</p>
+                  <p className="text-xs text-muted-foreground">{t('plant_new.analyzing_sub')}</p>
                 </div>
-              </div>
+              </motion.div>
+            )}
 
-              <div className="border-t pt-8">
-                <h3 className="text-lg font-serif font-semibold mb-4 text-foreground">Media & Notes</h3>
-                
-                <div className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="photoUrl"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-foreground font-semibold">Photo URL (Optional)</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input placeholder="https://..." {...field} className="pl-9 bg-background" />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+            {aiResults && !isAnalyzing && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 space-y-3"
+              >
+                {/* Identification card */}
+                {!aiResults.identification.error && (
+                  <div className="rounded-xl border bg-background p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-sm flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-primary" />
+                        {t('plant_new.result_identified')}
+                      </h3>
+                      {aiResults.identification.confidence && (
+                        <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", confidenceColor(aiResults.identification.confidence))}>
+                          {aiResults.identification.confidence} {t('plant_new.confidence_suffix')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      {aiResults.identification.commonName && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">{t('plant_new.common_name')}</p>
+                          <p className="font-medium">{aiResults.identification.commonName}</p>
+                        </div>
+                      )}
+                      {aiResults.identification.species && (
+                        <div>
+                          <p className="text-xs text-muted-foreground">{t('plant_new.species_result')}</p>
+                          <p className="font-medium italic">{aiResults.identification.species}</p>
+                        </div>
+                      )}
+                      {aiResults.identification.sunlight && (
+                        <div>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1"><Sun className="w-3 h-3" /> {t('plant_id.sunlight')}</p>
+                          <p className="font-medium">{aiResults.identification.sunlight}</p>
+                        </div>
+                      )}
+                      {aiResults.identification.suggestedWateringIntervalDays && (
+                        <div>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1"><Droplets className="w-3 h-3" /> {t('plant_new.water_every')}</p>
+                          <p className="font-medium">{aiResults.identification.suggestedWateringIntervalDays} {t('plant_new.days_suffix')}</p>
+                        </div>
+                      )}
+                    </div>
+                    {aiResults.identification.careRecommendations && (
+                      <p className="text-xs text-muted-foreground border-t pt-2">{aiResults.identification.careRecommendations}</p>
                     )}
-                  />
+                  </div>
+                )}
 
-                  <FormField
-                    control={form.control}
-                    name="notes"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-foreground font-semibold">Notes</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Add any specific care instructions or observations..." 
-                            className="min-h-[100px] bg-background"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                {/* Health card */}
+                <div className={cn(
+                  "rounded-xl border p-4 flex items-start gap-3",
+                  aiResults.disease.isHealthy ? "bg-green-50 border-green-200" : "bg-yellow-50 border-yellow-200"
+                )}>
+                  {aiResults.disease.isHealthy ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className={cn("font-semibold text-sm", aiResults.disease.isHealthy ? "text-green-800" : "text-yellow-800")}>
+                      {aiResults.disease.isHealthy ? t('plant_new.healthy_result') : (aiResults.disease.diseaseName ?? t('plant_new.health_concern'))}
+                    </p>
+                    {aiResults.disease.description && (
+                      <p className="text-xs mt-1 text-muted-foreground line-clamp-2">{aiResults.disease.description}</p>
                     )}
-                  />
+                    {!aiResults.disease.isHealthy && aiResults.disease.treatments && (
+                      <p className="text-xs mt-1 font-medium text-yellow-700">{t('plant_new.treatment_label')} {aiResults.disease.treatments}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-
-              <div className="flex justify-end gap-4 pt-4">
-                <Button type="button" variant="outline" onClick={() => setLocation('/plants')}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={createPlant.isPending} className="min-w-[120px]">
-                  {createPlant.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Record'}
-                </Button>
-              </div>
-            </form>
-          </Form>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
+      </div>
+
+      {/* ── Step 2: Plant Details Form ─────────────────────────────────── */}
+      <div className="bg-card border rounded-2xl shadow-sm overflow-hidden">
+        <div className="p-6 border-b">
+          <h2 className="font-serif text-lg font-semibold flex items-center gap-2">
+            <Leaf className="w-5 h-5 text-primary" />
+            {t('plant_new.details_title')}
+            {aiResults && <Badge variant="secondary" className="ml-2 text-xs">{t('plant_new.prefilled_badge')}</Badge>}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">{t('plant_new.details_desc')}</p>
+        </div>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>{t('plant_new.name_field_label')}</FormLabel>
+                    <FormControl>
+                      <Input placeholder={t('plant_new.name_field_placeholder')} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="species"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('plant_new.species_field_label')}</FormLabel>
+                    <FormControl>
+                      <Input placeholder={t('plant_new.species_field_placeholder')} className="italic" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('plant_new.type_field_label')}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('plant_new.select_type_placeholder')} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="plant">{t('plants.type_plant')}</SelectItem>
+                        <SelectItem value="crop">{t('plants.type_crop')}</SelectItem>
+                        <SelectItem value="tree">{t('plants.type_tree')}</SelectItem>
+                        <SelectItem value="flower">{t('plants.type_flower')}</SelectItem>
+                        <SelectItem value="herb">{t('plants.type_herb')}</SelectItem>
+                        <SelectItem value="shrub">{t('plants.type_shrub')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="healthStatus"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('plant_new.health_label')}</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="healthy">{t('plants.health_healthy')}</SelectItem>
+                        <SelectItem value="moderate">{t('plants.health_moderate')}</SelectItem>
+                        <SelectItem value="poor">{t('plants.health_poor')}</SelectItem>
+                        <SelectItem value="unknown">{t('plants.health_unknown')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="location"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('plant_new.location_field_label')}</FormLabel>
+                    <FormControl>
+                      <Input placeholder={t('plant_new.location_field_placeholder')} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="plantedDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('plant_new.planting_date_label')}</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* Care Schedule */}
+            <div className="border rounded-xl p-4 space-y-4 bg-muted/30">
+              <h3 className="font-medium text-sm flex items-center gap-2">
+                <Droplets className="w-4 h-4 text-blue-500" />
+                {t('plant_new.care_schedule_title')}
+                <span className="text-xs text-muted-foreground font-normal">{t('plant_new.auto_reminders_hint')}</span>
+              </h3>
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="wateringIntervalDays"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">{t('plant_new.water_interval')}</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={1} placeholder={t('plant_new.water_days_placeholder')} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="fertilizingIntervalDays"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">{t('plant_new.fertilize_interval')}</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={1} placeholder={t('plant_new.fertilize_days_placeholder')} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('plant_new.notes_label')}</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder={t('plant_new.notes_placeholder')}
+                      className="min-h-[80px] resize-none"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button type="button" variant="outline" onClick={() => navigate('/plants')}>
+                {t('plant_new.cancel')}
+              </Button>
+              <Button type="submit" disabled={isSaving || isAnalyzing} className="min-w-[130px]">
+                {isSaving ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('plant_new.saving')}</>
+                ) : (
+                  <><Leaf className="w-4 h-4 mr-2" /> {t('plant_new.save')}</>
+                )}
+              </Button>
+            </div>
+          </form>
+        </Form>
       </div>
     </div>
   );

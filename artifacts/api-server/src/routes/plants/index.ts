@@ -12,7 +12,7 @@ import {
 import { gte, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireAuth } from "../../middlewares/auth";
-import { generateFromImage } from "../../lib/grok";
+import { generateFromImage } from "../../lib/gemini";
 
 const router: IRouter = Router();
 

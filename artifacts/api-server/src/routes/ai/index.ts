@@ -1,6 +1,5 @@
 import { Router, type IRouter } from "express";
-import type OpenAI from "openai";
-import { generateFromImage, sendChatCompletion } from "../../lib/grok";
+import { generateFromImage, sendChatCompletion, type ChatMessage } from "../../lib/gemini";
 import { IdentifyPlantBody, DetectDiseaseBody } from "@workspace/api-zod";
 import { requireAuth } from "../../middlewares/auth";
 import { z } from "zod";
@@ -218,40 +217,27 @@ router.post("/ai/chat", async (req, res) => {
 
   try {
     // Build messages array: system prompt + conversation history + new message
-    const messages: OpenAI.ChatCompletionMessageParam[] = [
+    const messages: ChatMessage[] = [
       { role: "system", content: CHAT_SYSTEM_INSTRUCTION },
 
-      // Previous conversation turns — map Gemini "model" role → OpenAI "assistant"
-      ...history.map((msg): OpenAI.ChatCompletionMessageParam => {
+      // Previous conversation turns
+      ...history.map((msg): ChatMessage => {
         const role = msg.role === "model" ? "assistant" : "user";
-        if (role === "user" && msg.imageBase64 && msg.mimeType) {
-          return {
-            role: "user",
-            content: [
-              {
-                type: "image_url",
-                image_url: { url: `data:${msg.mimeType};base64,${msg.imageBase64}` },
-              },
-              { type: "text", text: msg.text },
-            ],
-          };
-        }
-        return { role, content: msg.text };
+        return {
+          role,
+          content: msg.text,
+          ...(role === "user" && msg.imageBase64 && msg.mimeType
+            ? { imageBase64: msg.imageBase64, mimeType: msg.mimeType }
+            : {}),
+        };
       }),
 
       // Current user message (may include an image)
-      imageBase64 && mimeType
-        ? {
-            role: "user",
-            content: [
-              {
-                type: "image_url",
-                image_url: { url: `data:${mimeType};base64,${imageBase64}` },
-              },
-              { type: "text", text: message },
-            ],
-          }
-        : { role: "user", content: message },
+      {
+        role: "user",
+        content: message,
+        ...(imageBase64 && mimeType ? { imageBase64, mimeType } : {}),
+      },
     ];
 
     const reply = await sendChatCompletion(messages);
@@ -281,10 +267,10 @@ router.post("/ai/support", async (req, res) => {
   const { history, message } = parsed.data;
 
   try {
-    const messages: OpenAI.ChatCompletionMessageParam[] = [
+    const messages: ChatMessage[] = [
       { role: "system", content: SUPPORT_SYSTEM_INSTRUCTION },
 
-      ...history.map((msg): OpenAI.ChatCompletionMessageParam => ({
+      ...history.map((msg): ChatMessage => ({
         role: msg.role === "model" ? "assistant" : "user",
         content: msg.text,
       })),

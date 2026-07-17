@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { requireAuth } from "../../middlewares/auth";
-import { sendChatCompletion } from "../../lib/grok";
+import { sendChatCompletion } from "../../lib/gemini";
 import { db, plantsTable, remindersTable } from "@workspace/db";
 import { eq, and, gte } from "drizzle-orm";
 

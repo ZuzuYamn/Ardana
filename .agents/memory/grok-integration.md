@@ -1,36 +1,22 @@
 ---
-name: Grok AI integration
-description: Replaced Gemini with xAI Grok; covers model names, key config, and API adapter pattern.
+name: AI integration history
+description: AI provider history — switched from Grok to Gemini; current setup uses Google Gemini
 ---
 
-# Grok AI Integration
+The app originally used xAI Grok, then was migrated to Google Gemini.
 
-Gemini was fully replaced by xAI's Grok (OpenAI-compatible API).
+**Current provider: Google Gemini**
+- Entry point: `artifacts/api-server/src/lib/gemini.ts`
+- Reads `GEMINI_API_KEY`, `GEMINI_API_KEY_2`, `GEMINI_API_KEY_3` from env; rotates on 429/quota errors
+- Uses `@google/generative-ai` SDK (GoogleGenerativeAI class)
+- Exports: `generateFromImage` (vision), `sendChatCompletion` (chat), `ChatMessage` type
+- Used by: `routes/ai/index.ts`, `routes/plants/index.ts`, `routes/weather/index.ts`
 
-## Configuration
-- **Keys:** `GROK_API_KEY` (agent 1) and `GROK_API_KEY_2` (agent 2), stored as Replit Secrets.
-- **Client library:** `openai` npm package, pointed at `https://api.x.ai/v1`.
-- **`@google/generative-ai` removed** from `package.json`; `lib/gemini.ts` deleted.
+**Current models (as of July 2026):**
+- Chat + Vision: `gemini-2.5-flash` (handles both text and image input)
 
-## Models
-- Text/chat: `grok-2-1212`
-- Vision (image input): `grok-2-vision-1212`
+**Why:** "gemini-3.5-flash" does not exist — closest valid model is `gemini-2.5-flash`. Always verify model names at https://docs.x.ai or https://ai.google.dev before using.
 
-## Key files
-- `artifacts/api-server/src/lib/grok.ts` — client pool, key rotation, two exported functions:
-  - `generateFromImage(imageBase64, mimeType, prompt)` → string (vision tasks)
-  - `sendChatCompletion(messages, options?)` → string (chat/text tasks)
-- All routes that previously used Gemini now import from `../../lib/grok`.
+**ChatMessage type** supports optional `imageBase64` + `mimeType` fields for vision in chat history. System messages are extracted and passed as `systemInstruction` to Gemini.
 
-## Routes updated
-- `routes/ai/index.ts` — plant ID, disease detection, chat assistant, support chat
-- `routes/plants/index.ts` — inline AI analysis on plant creation
-- `routes/weather/index.ts` — smart weather alerts and care recommendations
-
-## API differences from Gemini
-- Images: `{ type: "image_url", image_url: { url: "data:mime;base64,..." } }` (not `inlineData`)
-- Role names: `"assistant"` not `"model"` for AI turns
-- System prompts: proper `{ role: "system", content }` message (not injected as first history turn)
-- Response text: `completion.choices[0].message.content` (not `result.response.text()`)
-
-**Why:** Grok keys are per-user xAI accounts; rotating between 2 keys is the quota strategy (same as before with Gemini).
+**How to add more keys:** Add `GEMINI_API_KEY_2` or `GEMINI_API_KEY_3` as Replit Secrets — the pool auto-discovers them on startup.

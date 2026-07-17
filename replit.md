@@ -5,7 +5,7 @@ A full-stack plant care management web app with AI-powered plant identification,
 ## Stack
 
 - **Frontend**: React 19, Vite 7, Tailwind CSS 4, Radix UI, Framer Motion, Leaflet maps, Wouter routing, TanStack Query
-- **Backend**: Express 5, Drizzle ORM (PostgreSQL), Pino logging, `@google/generative-ai` (Gemini)
+- **Backend**: Express 5, Drizzle ORM (PostgreSQL), Pino logging, Google Gemini AI (vision + chat)
 - **Shared libs**: `lib/db` (schema + Drizzle), `lib/api-spec` (OpenAPI), `lib/api-client-react` (generated hooks), `lib/api-zod` (Zod schemas)
 
 ## Running the project
@@ -26,7 +26,7 @@ All secrets are stored in Replit Secrets (never committed to git):
 | Secret | Purpose |
 |---|---|
 | `SESSION_SECRET` | Express session signing |
-| `GEMINI_API_KEY` | Gemini AI (plant ID, disease detection). Also supports `GEMINI_API_KEY_2/3/4` for key rotation |
+| `GEMINI_API_KEY` | Google Gemini 2.5 Flash (plant identification, disease detection, chat). Add `GEMINI_API_KEY_2`, `GEMINI_API_KEY_3` for rotation |
 | `WEATHERAPI_KEY` | WeatherAPI.com weather data |
 | `OPENWEATHERMAP_API_KEY` | OpenWeatherMap fallback weather data |
 

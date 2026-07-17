@@ -11,10 +11,12 @@ import { logger } from "./logger";
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 /** Text conversations: farming assistant, support chat */
-const CHAT_MODEL = "gemini-3.5-flash";
+const CHAT_MODEL = "gemini-3-flash-preview";
+const CHAT_FALLBACK_MODEL = "gemini-3.5-flash"; // used when preview is overloaded
 
 /** Vision tasks: plant identification, disease detection */
-const VISION_MODEL = "gemini-3.5-flash"; // supports text + image input
+const VISION_MODEL = "gemini-3-flash-preview"; // supports text + image input
+const VISION_FALLBACK_MODEL = "gemini-3.5-flash"; // fallback when preview is overloaded
 
 // ─── Message type (replaces OpenAI.ChatCompletionMessageParam) ────────────────
 
@@ -39,6 +41,7 @@ function buildPool(): PoolEntry[] {
     { key: process.env.GEMINI_API_KEY, label: "gemini-agent-1" },
     { key: process.env.GEMINI_API_KEY_2, label: "gemini-agent-2" },
     { key: process.env.GEMINI_API_KEY_3, label: "gemini-agent-3" },
+    { key: process.env.GEMINI_API_KEY_4, label: "gemini-agent-4" },
   ];
 
   const pool = candidates
@@ -87,13 +90,57 @@ function isTransient(err: unknown): boolean {
   );
 }
 
+/**
+ * Figure out how long to lock a rate-limited key out for.
+ *
+ * Tries, in order:
+ *  1. Structured RetryInfo details on the thrown error object (the SDK
+ *     sometimes attaches `errorDetails` from the gRPC/REST error body).
+ *  2. A "retry after Ns" / "retry in Ns" pattern in the message text.
+ *  3. A short, capped fallback — NOT 65s. A blind 65-70s lockout on every
+ *     unparsed 429 is what causes cascading "all keys rate-limited"
+ *     failures: a burst of a few quick requests can lock every key out
+ *     for over a minute even when real quota resets much sooner.
+ */
 function retryDelayMs(err: unknown): number {
+  const anyErr = err as any;
+
+  // 1. Structured retry info, if the SDK/error surface exposes it.
+  const details: any[] | undefined =
+    anyErr?.errorDetails ?? anyErr?.error?.details ?? anyErr?.details;
+  if (Array.isArray(details)) {
+    const retryInfo = details.find((d) =>
+      typeof d?.["@type"] === "string" && d["@type"].includes("RetryInfo"),
+    );
+    const raw: string | undefined =
+      retryInfo?.retryDelay ?? retryInfo?.retry_delay;
+    if (raw) {
+      const seconds = parseFloat(String(raw).replace(/s$/i, ""));
+      if (!Number.isNaN(seconds)) {
+        return Math.ceil(seconds + 2) * 1000;
+      }
+    }
+  }
+
+  // 2. Text pattern fallback.
   const msg = err instanceof Error ? err.message : String(err);
   const m =
     msg.match(/retry[_\- ]?after[":\s]+(\d+(?:\.\d+)?)/i) ??
-    msg.match(/retry in (\d+(?:\.\d+)?)s/i);
-  const seconds = m ? parseFloat(m[1]) : 65;
-  return Math.ceil(seconds + 5) * 1000;
+    msg.match(/retry in (\d+(?:\.\d+)?)s/i) ??
+    msg.match(/retryDelay["':\s]+(\d+(?:\.\d+)?)s/i);
+  if (m) {
+    const seconds = parseFloat(m[1]);
+    if (!Number.isNaN(seconds)) {
+      return Math.ceil(seconds + 2) * 1000;
+    }
+  }
+
+  // 3. Short, capped default — long enough to back off, short enough
+  //    that one bad request doesn't take a key (or all keys) offline
+  //    for over a minute.
+  const DEFAULT_FALLBACK_SECONDS = 12;
+  const MAX_FALLBACK_SECONDS = 20;
+  return Math.min(DEFAULT_FALLBACK_SECONDS, MAX_FALLBACK_SECONDS) * 1000;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -105,7 +152,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * and retries. Keeps failures fast enough to beat frontend/proxy timeouts
  * instead of silently running for a minute or more.
  */
-const MAX_TOTAL_MS = 20_000;
+const MAX_TOTAL_MS = 28_000;
 
 /**
  * Max 503-style retries PER KEY. A 503 "high demand" error means the model
@@ -114,9 +161,8 @@ const MAX_TOTAL_MS = 20_000;
  * respect MAX_TOTAL_MS and to cover the (less common) case where the next
  * key routes to different backend capacity.
  */
-const MAX_TRANSIENT_RETRIES = 1;
-/** Backoff schedule for transient errors: 1.5 s, 3 s */
-const TRANSIENT_BACKOFF_MS = [1_500, 3_000];
+const MAX_TRANSIENT_RETRIES = 0;
+const TRANSIENT_BACKOFF_MS: number[] = [];
 
 async function runWithRotation<T>(
   fn: (client: GoogleGenerativeAI) => Promise<T>,
@@ -130,6 +176,8 @@ async function runWithRotation<T>(
   const deadline = Date.now() + MAX_TOTAL_MS;
   const tried = new Set<number>();
   let lastErr: unknown;
+  let sawOnlyRateLimit = true;
+  let earliestUnlock = Infinity;
 
   for (let attempt = 0; attempt < pool.length; attempt++) {
     if (Date.now() >= deadline) break;
@@ -142,7 +190,32 @@ async function runWithRotation<T>(
         break;
       }
     }
-    if (chosen === -1) break;
+
+    if (chosen === -1) {
+      // No key is currently free. Track the soonest one to unlock so we
+      // can decide below whether it's worth a short wait instead of
+      // failing immediately.
+      for (let i = 0; i < pool.length; i++) {
+        if (!tried.has(i)) {
+          earliestUnlock = Math.min(earliestUnlock, pool[i].rateLimitedUntil);
+        }
+      }
+
+      const waitMs = earliestUnlock - Date.now();
+      const remaining = deadline - Date.now();
+      // If the soonest key frees up soon enough to still fit within our
+      // deadline, wait for it instead of failing outright — this avoids
+      // the "every request in the next 70s errors instantly" cascade.
+      if (waitMs > 0 && waitMs < remaining) {
+        logger.warn(
+          { waitMs },
+          "All Gemini keys briefly rate-limited — waiting for soonest to free up",
+        );
+        await sleep(waitMs);
+        continue;
+      }
+      break;
+    }
 
     tried.add(chosen);
     cursor = (chosen + 1) % pool.length;
@@ -167,6 +240,8 @@ async function runWithRotation<T>(
           );
           break; // move on to the next key
         }
+
+        sawOnlyRateLimit = false;
 
         if (isTransient(err)) {
           const remaining = deadline - Date.now();
@@ -204,12 +279,14 @@ async function runWithRotation<T>(
   const cause =
     lastErr instanceof Error ? lastErr.message : String(lastErr ?? "unknown");
   logger.warn(
-    { cause },
+    { cause, sawOnlyRateLimit },
     "Gemini request failed after exhausting rotation/deadline",
   );
 
   throw new Error(
-    "The Gemini model is currently overloaded or rate-limited on all configured keys. Please try again shortly.",
+    sawOnlyRateLimit
+      ? "The Gemini model is currently rate-limited on all configured keys. Please try again shortly."
+      : "The Gemini model is currently overloaded or rate-limited on all configured keys. Please try again shortly.",
   );
 }
 
@@ -225,12 +302,25 @@ export async function generateFromImage(
   prompt: string,
 ): Promise<string> {
   return runWithRotation(async (client) => {
-    const model = client.getGenerativeModel({ model: VISION_MODEL });
-    const result = await model.generateContent([
-      { inlineData: { data: imageBase64, mimeType } },
-      prompt,
-    ]);
-    return result.response.text().trim();
+    try {
+      const model = client.getGenerativeModel({ model: VISION_MODEL });
+      const result = await model.generateContent([
+        { inlineData: { data: imageBase64, mimeType } },
+        prompt,
+      ]);
+      return result.response.text().trim();
+    } catch (err) {
+      if (isTransient(err)) {
+        logger.warn("Gemini preview vision model overloaded — falling back to stable model");
+        const model = client.getGenerativeModel({ model: VISION_FALLBACK_MODEL });
+        const result = await model.generateContent([
+          { inlineData: { data: imageBase64, mimeType } },
+          prompt,
+        ]);
+        return result.response.text().trim();
+      }
+      throw err;
+    }
   });
 }
 
@@ -238,6 +328,11 @@ export async function generateFromImage(
  * Send a chat completion with a full messages array.
  * System messages are extracted and passed as systemInstruction.
  * Used for the farming assistant and support chat.
+ *
+ * NOTE: callers should only attach `imageBase64`/`mimeType` on the CURRENT
+ * turn, not replay images from earlier history messages — resending a past
+ * image on every subsequent turn balloons request size/token usage and is
+ * a major contributor to hitting rate limits and timeouts.
  */
 export async function sendChatCompletion(
   messages: ChatMessage[],
@@ -258,13 +353,23 @@ export async function sendChatCompletion(
       return { role: m.role === "assistant" ? "model" : "user", parts };
     });
 
-    const model = client.getGenerativeModel({
-      model: CHAT_MODEL,
-      ...(systemMsg ? { systemInstruction: systemMsg.content } : {}),
-      generationConfig: { maxOutputTokens: options.maxTokens ?? 8192 },
-    });
+    const buildModel = (modelName: string) =>
+      client.getGenerativeModel({
+        model: modelName,
+        ...(systemMsg ? { systemInstruction: systemMsg.content } : {}),
+        generationConfig: { maxOutputTokens: options.maxTokens ?? 8192 },
+      });
 
-    const result = await model.generateContent({ contents });
-    return result.response.text().trim();
+    try {
+      const result = await buildModel(CHAT_MODEL).generateContent({ contents });
+      return result.response.text().trim();
+    } catch (err) {
+      if (isTransient(err)) {
+        logger.warn("Gemini preview chat model overloaded — falling back to stable model");
+        const result = await buildModel(CHAT_FALLBACK_MODEL).generateContent({ contents });
+        return result.response.text().trim();
+      }
+      throw err;
+    }
   });
 }

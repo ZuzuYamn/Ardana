@@ -1,5 +1,9 @@
 import { Router, type IRouter } from "express";
-import { generateFromImage, sendChatCompletion, type ChatMessage } from "../../lib/gemini";
+import {
+  generateFromImage,
+  sendChatCompletion,
+  type ChatMessage,
+} from "../../lib/gemini";
 import { IdentifyPlantBody, DetectDiseaseBody } from "@workspace/api-zod";
 import { requireAuth } from "../../middlewares/auth";
 import { z } from "zod";
@@ -114,22 +118,49 @@ const SupportBody = z.object({
 
 // ─── Error translation ────────────────────────────────────────────────────────
 
-function translateAiError(err: unknown, agentLabel: string): { status: number; message: string } {
+function translateAiError(
+  err: unknown,
+  agentLabel: string,
+): { status: number; message: string } {
   const msg = err instanceof Error ? err.message : "Unknown error";
-  if (msg.includes("Incorrect API key") || msg.includes("invalid_api_key") || msg.includes("API key not valid")) {
-    return { status: 503, message: `${agentLabel} API key is invalid. Please contact the administrator.` };
+  if (
+    msg.includes("Incorrect API key") ||
+    msg.includes("invalid_api_key") ||
+    msg.includes("API key not valid")
+  ) {
+    return {
+      status: 503,
+      message: `${agentLabel} API key is invalid. Please contact the administrator.`,
+    };
   }
-  if (msg.includes("rate_limit") || msg.includes("429") || msg.includes("quota") || msg.includes("rate-limited")) {
-    return { status: 429, message: "AI request limit reached. Please wait a moment and try again." };
+  if (
+    msg.includes("rate_limit") ||
+    msg.includes("429") ||
+    msg.includes("quota") ||
+    msg.includes("rate-limited")
+  ) {
+    return {
+      status: 429,
+      message: "AI request limit reached. Please wait a moment and try again.",
+    };
   }
   if (msg.includes("content_filter") || msg.includes("SAFETY")) {
-    return { status: 400, message: "Your input was flagged by safety filters. Please rephrase it." };
+    return {
+      status: 400,
+      message: "Your input was flagged by safety filters. Please rephrase it.",
+    };
   }
   if (msg.includes("is not configured") || msg.includes("No Grok API keys")) {
-    return { status: 503, message: `${agentLabel} is not configured. Please add the API key in environment settings.` };
+    return {
+      status: 503,
+      message: `${agentLabel} is not configured. Please add the API key in environment settings.`,
+    };
   }
   if (msg.includes("timeout") || msg.includes("DEADLINE_EXCEEDED")) {
-    return { status: 504, message: "The AI took too long to respond. Please try again." };
+    return {
+      status: 504,
+      message: "The AI took too long to respond. Please try again.",
+    };
   }
   return { status: 500, message: `AI error: ${msg}` };
 }
@@ -137,7 +168,10 @@ function translateAiError(err: unknown, agentLabel: string): { status: number; m
 // ─── Helper: strip JSON markdown fences ──────────────────────────────────────
 
 function stripFences(raw: string): string {
-  return raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+  return raw
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```\s*$/, "")
+    .trim();
 }
 
 // ─── Agent 2 (vision): Plant Identification ───────────────────────────────────
@@ -145,7 +179,9 @@ function stripFences(raw: string): string {
 router.post("/ai/identify-plant", async (req, res) => {
   const parsed = IdentifyPlantBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid request: " + parsed.error.issues[0]?.message });
+    res
+      .status(400)
+      .json({ error: "Invalid request: " + parsed.error.issues[0]?.message });
     return;
   }
 
@@ -160,7 +196,9 @@ router.post("/ai/identify-plant", async (req, res) => {
       result = JSON.parse(jsonText);
     } catch {
       req.log.warn({ raw }, "Plant ID: failed to parse JSON from AI");
-      res.status(502).json({ error: "AI returned an unexpected format. Please try again." });
+      res
+        .status(502)
+        .json({ error: "AI returned an unexpected format. Please try again." });
       return;
     }
 
@@ -177,7 +215,9 @@ router.post("/ai/identify-plant", async (req, res) => {
 router.post("/ai/detect-disease", async (req, res) => {
   const parsed = DetectDiseaseBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid request: " + parsed.error.issues[0]?.message });
+    res
+      .status(400)
+      .json({ error: "Invalid request: " + parsed.error.issues[0]?.message });
     return;
   }
 
@@ -192,7 +232,9 @@ router.post("/ai/detect-disease", async (req, res) => {
       result = JSON.parse(jsonText);
     } catch {
       req.log.warn({ raw }, "Disease detection: failed to parse JSON from AI");
-      res.status(502).json({ error: "AI returned an unexpected format. Please try again." });
+      res
+        .status(502)
+        .json({ error: "AI returned an unexpected format. Please try again." });
       return;
     }
 
@@ -209,7 +251,9 @@ router.post("/ai/detect-disease", async (req, res) => {
 router.post("/ai/chat", async (req, res) => {
   const parsed = ChatBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid request: " + parsed.error.issues[0]?.message });
+    res
+      .status(400)
+      .json({ error: "Invalid request: " + parsed.error.issues[0]?.message });
     return;
   }
 
@@ -220,17 +264,18 @@ router.post("/ai/chat", async (req, res) => {
     const messages: ChatMessage[] = [
       { role: "system", content: CHAT_SYSTEM_INSTRUCTION },
 
-      // Previous conversation turns
-      ...history.map((msg): ChatMessage => {
-        const role = msg.role === "model" ? "assistant" : "user";
-        return {
-          role,
+      // Previous conversation turns.
+      // NOTE: we intentionally do NOT re-attach imageBase64 from history
+      // here. Doing so would resend every past image on every subsequent
+      // turn, ballooning request size/token usage and causing rate limits
+      // and timeouts on longer conversations. Only the CURRENT turn's
+      // image (below) is ever sent.
+      ...history.map(
+        (msg): ChatMessage => ({
+          role: msg.role === "model" ? "assistant" : "user",
           content: msg.text,
-          ...(role === "user" && msg.imageBase64 && msg.mimeType
-            ? { imageBase64: msg.imageBase64, mimeType: msg.mimeType }
-            : {}),
-        };
-      }),
+        }),
+      ),
 
       // Current user message (may include an image)
       {
@@ -243,7 +288,11 @@ router.post("/ai/chat", async (req, res) => {
     const reply = await sendChatCompletion(messages);
 
     if (!reply) {
-      res.status(502).json({ error: "The AI returned an empty response. Please try again." });
+      res
+        .status(502)
+        .json({
+          error: "The AI returned an empty response. Please try again.",
+        });
       return;
     }
 
@@ -260,7 +309,9 @@ router.post("/ai/chat", async (req, res) => {
 router.post("/ai/support", async (req, res) => {
   const parsed = SupportBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: "Invalid request: " + parsed.error.issues[0]?.message });
+    res
+      .status(400)
+      .json({ error: "Invalid request: " + parsed.error.issues[0]?.message });
     return;
   }
 
@@ -270,10 +321,12 @@ router.post("/ai/support", async (req, res) => {
     const messages: ChatMessage[] = [
       { role: "system", content: SUPPORT_SYSTEM_INSTRUCTION },
 
-      ...history.map((msg): ChatMessage => ({
-        role: msg.role === "model" ? "assistant" : "user",
-        content: msg.text,
-      })),
+      ...history.map(
+        (msg): ChatMessage => ({
+          role: msg.role === "model" ? "assistant" : "user",
+          content: msg.text,
+        }),
+      ),
 
       { role: "user", content: message },
     ];
@@ -281,7 +334,9 @@ router.post("/ai/support", async (req, res) => {
     const reply = await sendChatCompletion(messages, { maxTokens: 1024 });
 
     if (!reply) {
-      res.status(502).json({ error: "No response from support AI. Please try again." });
+      res
+        .status(502)
+        .json({ error: "No response from support AI. Please try again." });
       return;
     }
 

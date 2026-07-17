@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { requireAuth } from "../../middlewares/auth";
-import { getChatModel } from "../../lib/gemini";
+import { sendChatCompletion } from "../../lib/grok";
 import { db, plantsTable, remindersTable } from "@workspace/db";
 import { eq, and, gte } from "drizzle-orm";
 
@@ -219,7 +219,6 @@ router.post("/weather/ai-alerts", async (req, res): Promise<void> => {
     .join("\n");
 
   try {
-    const model = getChatModel();
     const prompt = `You are an expert farming AI assistant. Analyze the weather and generate smart care alerts.
 
 WEATHER DATA:
@@ -248,10 +247,7 @@ Rules:
 
 Return ONLY the JSON array. No markdown. No extra text.`;
 
-    const result = await model.generateContent(prompt);
-    const raw = result.response
-      .text()
-      .trim()
+    const raw = (await sendChatCompletion([{ role: "user", content: prompt }]))
       .replace(/^```json?\s*/i, "")
       .replace(/```\s*$/, "")
       .trim();
@@ -355,7 +351,6 @@ router.post("/weather/smart-alerts", async (req, res): Promise<void> => {
 
   // 4. Call AI
   try {
-    const model = getChatModel();
     const prompt = `You are a smart plant care assistant. Analyze the weather forecast and the user's plant schedules to generate intelligent, weather-adjusted care recommendations.
 
 WEATHER DATA:
@@ -387,8 +382,7 @@ Each object must have:
 
 Return ONLY a JSON array. No markdown, no code fences, no extra text.`;
 
-    const result = await model.generateContent(prompt);
-    const raw = result.response.text().trim()
+    const raw = (await sendChatCompletion([{ role: "user", content: prompt }]))
       .replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
 
     let alerts: unknown[] = [];

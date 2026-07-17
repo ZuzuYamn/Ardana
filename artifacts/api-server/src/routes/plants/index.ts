@@ -12,7 +12,7 @@ import {
 import { gte, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireAuth } from "../../middlewares/auth";
-import { getGeminiModel } from "../../lib/gemini";
+import { generateFromImage } from "../../lib/grok";
 
 const router: IRouter = Router();
 
@@ -138,9 +138,6 @@ router.post("/plants/with-analysis", async (req, res): Promise<void> => {
   // Run AI analysis if image provided and not already analyzed
   if (imageBase64 && mimeType && (!aiIdentification || !aiDiseaseDetection)) {
     try {
-      const model = getGeminiModel("gemini-2.0-flash");
-      const imagePart = { inlineData: { data: imageBase64, mimeType } };
-
       const IDENTIFY_PROMPT = `You are an expert botanist. Analyze this plant image and identify it.
 Return a valid JSON object (no markdown, no code blocks) with these exact fields:
 {"species":"scientific name or null","commonName":"common name or null","family":"plant family or null","confidence":"high|medium|low","description":"brief description","wateringRequirements":"watering guidance","growingConditions":"soil/temperature/climate","fertilizers":"recommended fertilizers","careRecommendations":"care tips","sunlight":"sunlight requirements","soilType":"soil type and pH","suggestedWateringIntervalDays":number or null,"suggestedFertilizingIntervalDays":number or null,"error":null}`;
@@ -149,12 +146,14 @@ Return a valid JSON object (no markdown, no code blocks) with these exact fields
 Return a valid JSON object (no markdown, no code blocks) with these exact fields:
 {"isHealthy":true or false,"diseaseName":"disease name or null","confidence":"high|medium|low","description":"what you observe","causes":"causes or null","symptoms":"visible symptoms","treatments":"recommended treatments","products":"specific products","preventiveMeasures":"prevention tips","urgency":"immediate|soon|low|none","error":null}`;
 
+      const strip = (s: string) => s.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+
       const [identifyResult, diseaseResult] = await Promise.allSettled([
         !aiIdentification
-          ? model.generateContent([imagePart, IDENTIFY_PROMPT]).then((r) => r.response.text().trim().replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim())
+          ? generateFromImage(imageBase64, mimeType, IDENTIFY_PROMPT).then(strip)
           : Promise.resolve(aiIdentification),
         !aiDiseaseDetection
-          ? model.generateContent([imagePart, DISEASE_PROMPT]).then((r) => r.response.text().trim().replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim())
+          ? generateFromImage(imageBase64, mimeType, DISEASE_PROMPT).then(strip)
           : Promise.resolve(aiDiseaseDetection),
       ]);
 

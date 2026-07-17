@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
-import { getChatModel, getVisionModel, getSupportModel } from "../../lib/gemini";
+import type OpenAI from "openai";
+import { generateFromImage, sendChatCompletion } from "../../lib/grok";
 import { IdentifyPlantBody, DetectDiseaseBody } from "@workspace/api-zod";
 import { requireAuth } from "../../middlewares/auth";
 import { z } from "zod";
@@ -116,25 +117,31 @@ const SupportBody = z.object({
 
 function translateAiError(err: unknown, agentLabel: string): { status: number; message: string } {
   const msg = err instanceof Error ? err.message : "Unknown error";
-  if (msg.includes("API_KEY_INVALID") || msg.includes("API key not valid")) {
+  if (msg.includes("Incorrect API key") || msg.includes("invalid_api_key") || msg.includes("API key not valid")) {
     return { status: 503, message: `${agentLabel} API key is invalid. Please contact the administrator.` };
   }
-  if (msg.includes("RESOURCE_EXHAUSTED") || msg.includes("quota")) {
+  if (msg.includes("rate_limit") || msg.includes("429") || msg.includes("quota") || msg.includes("rate-limited")) {
     return { status: 429, message: "AI request limit reached. Please wait a moment and try again." };
   }
-  if (msg.includes("SAFETY")) {
+  if (msg.includes("content_filter") || msg.includes("SAFETY")) {
     return { status: 400, message: "Your input was flagged by safety filters. Please rephrase it." };
   }
-  if (msg.includes("is not configured")) {
+  if (msg.includes("is not configured") || msg.includes("No Grok API keys")) {
     return { status: 503, message: `${agentLabel} is not configured. Please add the API key in environment settings.` };
   }
-  if (msg.includes("DEADLINE_EXCEEDED") || msg.includes("timeout")) {
+  if (msg.includes("timeout") || msg.includes("DEADLINE_EXCEEDED")) {
     return { status: 504, message: "The AI took too long to respond. Please try again." };
   }
   return { status: 500, message: `AI error: ${msg}` };
 }
 
-// ─── Agent 2: Plant Identification ────────────────────────────────────────────
+// ─── Helper: strip JSON markdown fences ──────────────────────────────────────
+
+function stripFences(raw: string): string {
+  return raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+}
+
+// ─── Agent 2 (vision): Plant Identification ───────────────────────────────────
 
 router.post("/ai/identify-plant", async (req, res) => {
   const parsed = IdentifyPlantBody.safeParse(req.body);
@@ -146,25 +153,19 @@ router.post("/ai/identify-plant", async (req, res) => {
   const { imageBase64, mimeType } = parsed.data;
 
   try {
-    const model = getVisionModel();
-    const result = await model.generateContent([
-      { inlineData: { data: imageBase64, mimeType } },
-      { text: IDENTIFY_PROMPT },
-    ]);
+    const raw = await generateFromImage(imageBase64, mimeType, IDENTIFY_PROMPT);
+    const jsonText = stripFences(raw);
 
-    const raw = result.response.text().trim();
-    const jsonText = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
-
-    let parsed: Record<string, unknown>;
+    let result: Record<string, unknown>;
     try {
-      parsed = JSON.parse(jsonText);
+      result = JSON.parse(jsonText);
     } catch {
       req.log.warn({ raw }, "Plant ID: failed to parse JSON from AI");
       res.status(502).json({ error: "AI returned an unexpected format. Please try again." });
       return;
     }
 
-    res.json(parsed);
+    res.json(result);
   } catch (err) {
     req.log.error({ err }, "Plant identification failed");
     const { status, message } = translateAiError(err, "Vision AI");
@@ -172,7 +173,7 @@ router.post("/ai/identify-plant", async (req, res) => {
   }
 });
 
-// ─── Agent 2: Disease Detection ───────────────────────────────────────────────
+// ─── Agent 2 (vision): Disease Detection ─────────────────────────────────────
 
 router.post("/ai/detect-disease", async (req, res) => {
   const parsed = DetectDiseaseBody.safeParse(req.body);
@@ -184,25 +185,19 @@ router.post("/ai/detect-disease", async (req, res) => {
   const { imageBase64, mimeType } = parsed.data;
 
   try {
-    const model = getVisionModel();
-    const result = await model.generateContent([
-      { inlineData: { data: imageBase64, mimeType } },
-      { text: DISEASE_PROMPT },
-    ]);
+    const raw = await generateFromImage(imageBase64, mimeType, DISEASE_PROMPT);
+    const jsonText = stripFences(raw);
 
-    const raw = result.response.text().trim();
-    const jsonText = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
-
-    let parsed: Record<string, unknown>;
+    let result: Record<string, unknown>;
     try {
-      parsed = JSON.parse(jsonText);
+      result = JSON.parse(jsonText);
     } catch {
       req.log.warn({ raw }, "Disease detection: failed to parse JSON from AI");
       res.status(502).json({ error: "AI returned an unexpected format. Please try again." });
       return;
     }
 
-    res.json(parsed);
+    res.json(result);
   } catch (err) {
     req.log.error({ err }, "Disease detection failed");
     const { status, message } = translateAiError(err, "Vision AI");
@@ -222,44 +217,44 @@ router.post("/ai/chat", async (req, res) => {
   const { history, message, imageBase64, mimeType } = parsed.data;
 
   try {
-    const model = getChatModel();
+    // Build messages array: system prompt + conversation history + new message
+    const messages: OpenAI.ChatCompletionMessageParam[] = [
+      { role: "system", content: CHAT_SYSTEM_INSTRUCTION },
 
-    // Rebuild conversation history for Gemini
-    const geminiHistory = history.map((msg) => ({
-      role: msg.role,
-      parts: [
-        ...(msg.imageBase64 && msg.mimeType
-          ? [{ inlineData: { data: msg.imageBase64, mimeType: msg.mimeType } }]
-          : []),
-        { text: msg.text },
-      ],
-    }));
+      // Previous conversation turns — map Gemini "model" role → OpenAI "assistant"
+      ...history.map((msg): OpenAI.ChatCompletionMessageParam => {
+        const role = msg.role === "model" ? "assistant" : "user";
+        if (role === "user" && msg.imageBase64 && msg.mimeType) {
+          return {
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: { url: `data:${msg.mimeType};base64,${msg.imageBase64}` },
+              },
+              { type: "text", text: msg.text },
+            ],
+          };
+        }
+        return { role, content: msg.text };
+      }),
 
-    // Inject system instruction as the first exchange
-    const systemHistory = [
-      {
-        role: "user" as const,
-        parts: [{ text: "Please act as an expert farming and plant care AI assistant." }],
-      },
-      {
-        role: "model" as const,
-        parts: [{ text: CHAT_SYSTEM_INSTRUCTION }],
-      },
+      // Current user message (may include an image)
+      imageBase64 && mimeType
+        ? {
+            role: "user",
+            content: [
+              {
+                type: "image_url",
+                image_url: { url: `data:${mimeType};base64,${imageBase64}` },
+              },
+              { type: "text", text: message },
+            ],
+          }
+        : { role: "user", content: message },
     ];
 
-    const chat = model.startChat({
-      history: [...systemHistory, ...geminiHistory],
-    });
-
-    const messageParts = [
-      ...(imageBase64 && mimeType
-        ? [{ inlineData: { data: imageBase64, mimeType } }]
-        : []),
-      { text: message },
-    ];
-
-    const result = await chat.sendMessage(messageParts);
-    const reply = result.response.text().trim();
+    const reply = await sendChatCompletion(messages);
 
     if (!reply) {
       res.status(502).json({ error: "The AI returned an empty response. Please try again." });
@@ -274,7 +269,7 @@ router.post("/ai/chat", async (req, res) => {
   }
 });
 
-// ─── Agent 3: Contact Support ─────────────────────────────────────────────────
+// ─── Agent 1: Contact Support ─────────────────────────────────────────────────
 
 router.post("/ai/support", async (req, res) => {
   const parsed = SupportBody.safeParse(req.body);
@@ -286,30 +281,18 @@ router.post("/ai/support", async (req, res) => {
   const { history, message } = parsed.data;
 
   try {
-    const model = getSupportModel();
+    const messages: OpenAI.ChatCompletionMessageParam[] = [
+      { role: "system", content: SUPPORT_SYSTEM_INSTRUCTION },
 
-    const geminiHistory = history.map((msg) => ({
-      role: msg.role,
-      parts: [{ text: msg.text }],
-    }));
+      ...history.map((msg): OpenAI.ChatCompletionMessageParam => ({
+        role: msg.role === "model" ? "assistant" : "user",
+        content: msg.text,
+      })),
 
-    const systemHistory = [
-      {
-        role: "user" as const,
-        parts: [{ text: "Please act as Ardana's customer support assistant." }],
-      },
-      {
-        role: "model" as const,
-        parts: [{ text: SUPPORT_SYSTEM_INSTRUCTION }],
-      },
+      { role: "user", content: message },
     ];
 
-    const chat = model.startChat({
-      history: [...systemHistory, ...geminiHistory],
-    });
-
-    const result = await chat.sendMessage([{ text: message }]);
-    const reply = result.response.text().trim();
+    const reply = await sendChatCompletion(messages, { maxTokens: 1024 });
 
     if (!reply) {
       res.status(502).json({ error: "No response from support AI. Please try again." });

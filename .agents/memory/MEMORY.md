@@ -1,2 +1,3 @@
 - [connect-pg-simple esbuild issue](connect-pg-simple-esbuild.md) — table.sql not bundled; create user_sessions table manually, never use createTableIfMissing
 - [express-session save timing](express-session-save.md) — must call req.session.save() explicitly before res.json() or sessions don't persist
+- [Grok AI integration](grok-integration.md) — replaced Gemini with xAI Grok; lib/grok.ts wraps openai SDK at api.x.ai/v1 with 2-key rotation

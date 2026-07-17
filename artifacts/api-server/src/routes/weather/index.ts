@@ -2,8 +2,8 @@ import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { requireAuth } from "../../middlewares/auth";
 import { getChatModel } from "../../lib/gemini";
-import { db, plantsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, plantsTable, remindersTable } from "@workspace/db";
+import { eq, and, gte } from "drizzle-orm";
 
 const router: IRouter = Router();
 router.use(requireAuth);
@@ -261,6 +261,143 @@ Return ONLY the JSON array. No markdown. No extra text.`;
   } catch (err) {
     req.log.error({ err }, "AI weather alerts failed");
     res.json({ alerts: [] });
+  }
+});
+
+// ─── Smart Alerts for Reminders ───────────────────────────────────────────────
+// Takes lat/lon, fetches weather internally, then uses the user's plants +
+// pending reminders to generate weather-adjusted scheduling recommendations.
+const SmartAlertsBody = z.object({
+  lat: z.number(),
+  lon: z.number(),
+  locationName: z.string().optional(),
+});
+
+router.post("/weather/smart-alerts", async (req, res): Promise<void> => {
+  const parsed = SmartAlertsBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const userId = req.session.userId!;
+  if (!WEATHERAPI_KEY) { res.status(503).json({ error: "WEATHERAPI_KEY not configured" }); return; }
+
+  // 1. Fetch weather
+  let weatherData: any;
+  try {
+    const url = `http://api.weatherapi.com/v1/forecast.json?key=${WEATHERAPI_KEY}&q=${parsed.data.lat},${parsed.data.lon}&days=7&aqi=no&alerts=no`;
+    const r = await fetch(url);
+    if (!r.ok) { res.status(502).json({ error: "Weather service unavailable" }); return; }
+    weatherData = await r.json();
+  } catch {
+    res.status(502).json({ error: "Weather fetch failed" }); return;
+  }
+
+  // 2. Get user's plants and their upcoming pending reminders
+  const today = new Date().toISOString().split("T")[0];
+  const tenDaysLater = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+  const plants = await db.select().from(plantsTable).where(eq(plantsTable.userId, userId));
+  if (!plants.length) { res.json({ alerts: [] }); return; }
+
+  const upcomingReminders = await db
+    .select({
+      id: remindersTable.id,
+      plantId: remindersTable.plantId,
+      type: remindersTable.type,
+      scheduledDate: remindersTable.scheduledDate,
+      notes: remindersTable.notes,
+    })
+    .from(remindersTable)
+    .innerJoin(plantsTable, and(eq(remindersTable.plantId, plantsTable.id), eq(plantsTable.userId, userId)))
+    .where(and(eq(remindersTable.completed, false), gte(remindersTable.scheduledDate, today)));
+
+  // 3. Build context strings
+  const loc = weatherData.location;
+  const locationName = parsed.data.locationName ?? `${loc.name}, ${loc.country}`;
+
+  const daily = (weatherData.forecast.forecastday as any[]).map((d: any) => ({
+    date: d.date as string,
+    maxTemp: Math.round(d.day.maxtemp_c),
+    minTemp: Math.round(d.day.mintemp_c),
+    precipitation: d.day.totalprecip_mm as number,
+    chanceOfRain: d.day.daily_chance_of_rain as number,
+    humidity: d.day.avghumidity as number,
+    windSpeed: Math.round(d.day.maxwind_kph),
+    description: d.day.condition.text as string,
+  }));
+
+  const weatherContext = [
+    `Location: ${locationName}`,
+    `Today (${today}): ${weatherData.current.condition.text}, ${Math.round(weatherData.current.temp_c)}°C, humidity ${weatherData.current.humidity}%, rain ${weatherData.current.precip_mm}mm`,
+    "",
+    "7-Day forecast:",
+    ...daily.map((d) =>
+      `  ${d.date}: ${d.description}, max ${d.maxTemp}°C / min ${d.minTemp}°C, rain ${d.precipitation}mm (${d.chanceOfRain}% chance), wind ${d.windSpeed} km/h, humidity ${d.humidity}%`
+    ),
+  ].join("\n");
+
+  const plantContext = plants
+    .slice(0, 10)
+    .map((p) => {
+      const plantReminders = upcomingReminders
+        .filter((r) => r.plantId === p.id)
+        .filter((r) => r.scheduledDate <= tenDaysLater)
+        .map((r) => `    - ${r.type} on ${r.scheduledDate}`)
+        .join("\n");
+      return (
+        `• ${p.name} (${p.species ?? p.type}): health=${p.healthStatus}, ` +
+        `last watered=${p.lastWateredDate ?? "never"}, watering every ${p.wateringIntervalDays ?? 3}d, ` +
+        `last fertilized=${p.lastFertilizedDate ?? "never"}, fertilizing every ${p.fertilizingIntervalDays ?? 20}d, ` +
+        `location=${p.location ?? "unspecified"}` +
+        (plantReminders ? `\n  Upcoming reminders:\n${plantReminders}` : "\n  No upcoming reminders")
+      );
+    })
+    .join("\n\n");
+
+  // 4. Call AI
+  try {
+    const model = getChatModel();
+    const prompt = `You are a smart plant care assistant. Analyze the weather forecast and the user's plant schedules to generate intelligent, weather-adjusted care recommendations.
+
+WEATHER DATA:
+${weatherContext}
+
+USER'S PLANTS AND UPCOMING REMINDERS:
+${plantContext}
+
+TODAY: ${today}
+
+Generate up to 6 smart, actionable alerts as a JSON array. Each alert must be specific to a plant and its upcoming reminders. Focus on:
+- SKIP or POSTPONE watering if significant rain (>5mm) is expected within 1-2 days of a scheduled watering
+- ADVANCE watering if hot/dry weather (temp >32°C, humidity <30%, no rain) means the plant needs water sooner
+- FLAG heat stress risk for plants in full sun when temperature >35°C
+- SUGGEST optimal fertilizing timing (1-2 days before light rain is ideal)
+- WARN about frost (<3°C) for sensitive plants
+- WARN about fungal risk if humidity >80% and temperature >20°C for multiple days
+
+Each object must have:
+{
+  "type": "watering" | "fertilizing" | "pruning" | "protection" | "general",
+  "severity": "info" | "warning" | "critical",
+  "title": "concise title (max 8 words)",
+  "message": "specific recommendation mentioning the plant name, exact dates, and concrete action (2-3 sentences)",
+  "plantName": "exact plant name from the list",
+  "action": "skip" | "postpone" | "advance" | "urgent" | "info",
+  "suggestedDate": "YYYY-MM-DD if you're recommending a specific date, otherwise null"
+}
+
+Return ONLY a JSON array. No markdown, no code fences, no extra text.`;
+
+    const result = await model.generateContent(prompt);
+    const raw = result.response.text().trim()
+      .replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
+
+    let alerts: unknown[] = [];
+    try { alerts = JSON.parse(raw); } catch { /* return empty on parse error */ }
+
+    res.json({ alerts, locationName, weatherSummary: daily.slice(0, 3) });
+  } catch (err) {
+    req.log.error({ err }, "Smart alerts AI failed");
+    res.json({ alerts: [], locationName, weatherSummary: [] });
   }
 });
 

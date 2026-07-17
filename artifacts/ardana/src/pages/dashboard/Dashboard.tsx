@@ -85,76 +85,84 @@ export default function Dashboard() {
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6"
       >
         <motion.div variants={item}>
-          <Card className="bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {t("dashboard.total_plants")}
-                  </p>
-                  <p className="text-3xl font-serif font-bold text-primary">
-                    {statsLoading ? (
-                      <Skeleton className="h-8 w-16" />
-                    ) : (
-                      stats?.totalPlants || 0
-                    )}
-                  </p>
+          <Link href="/plants">
+            <Card className="bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all cursor-pointer">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {t("dashboard.total_plants")}
+                    </p>
+                    <p className="text-3xl font-serif font-bold text-primary">
+                      {statsLoading ? (
+                        <Skeleton className="h-8 w-16" />
+                      ) : (
+                        stats?.totalPlants || 0
+                      )}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Leaf className="w-6 h-6 text-primary" />
+                  </div>
                 </div>
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Leaf className="w-6 h-6 text-primary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
         </motion.div>
 
         <motion.div variants={item}>
-          <Card className="bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {t("dashboard.needs_attention")}
-                  </p>
-                  <p className="text-3xl font-serif font-bold text-destructive">
-                    {statsLoading ? (
-                      <Skeleton className="h-8 w-16" />
-                    ) : (
-                      stats?.needsAttention || 0
-                    )}
-                  </p>
+          <Link href="/plants?attention=true" className="block">
+            <Card className="bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all hover:border-destructive/40 hover:shadow-md cursor-pointer group">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {t("dashboard.needs_attention")}
+                    </p>
+                    <p className="text-3xl font-serif font-bold text-destructive">
+                      {statsLoading ? (
+                        <Skeleton className="h-8 w-16" />
+                      ) : (
+                        stats?.needsAttention || 0
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center group-hover:bg-                                destructive/20 transition-colors">
+                      <AlertCircle className="w-6 h-6 text-destructive" />
+                    </div>
+                  </div>
                 </div>
-                <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-                  <AlertCircle className="w-6 h-6 text-destructive" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
         </motion.div>
 
         <motion.div variants={item}>
-          <Card className="bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {t("dashboard.upcoming_tasks")}
-                  </p>
-                  <p className="text-3xl font-serif font-bold text-amber-600">
-                    {statsLoading ? (
-                      <Skeleton className="h-8 w-16" />
-                    ) : (
-                      (stats?.upcomingRemindersCount || 0) +
-                      (stats?.overdueRemindersCount || 0)
-                    )}
-                  </p>
+          <Link href="/reminders">
+            <Card className="bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all cursor-pointer">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {t("dashboard.upcoming_tasks")}
+                    </p>
+                    <p className="text-3xl font-serif font-bold text-amber-600">
+                      {statsLoading ? (
+                        <Skeleton className="h-8 w-16" />
+                      ) : (
+                        (stats?.upcomingRemindersCount || 0) +
+                        (stats?.overdueRemindersCount || 0)
+                      )}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+                    <CalendarClock className="w-6 h-6 text-amber-600" />
+                  </div>
                 </div>
-                <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
-                  <CalendarClock className="w-6 h-6 text-amber-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
         </motion.div>
 
         <motion.div variants={item}>

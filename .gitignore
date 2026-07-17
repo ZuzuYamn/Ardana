@@ -47,3 +47,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Private / secret files — never pushed to GitHub
+secrets/

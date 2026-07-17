@@ -119,6 +119,10 @@ export default function PlantNew() {
       location: '',
       plantedDate: new Date().toISOString().split('T')[0],
       healthStatus: 'unknown',
+      // Default schedules — user can edit before saving.
+      // AI identification will override these if it detects a specific species.
+      wateringIntervalDays: 3,
+      fertilizingIntervalDays: 20,
       notes: '',
     },
   });
@@ -541,11 +545,16 @@ export default function PlantNew() {
 
             {/* Care Schedule */}
             <div className="border rounded-xl p-4 space-y-4 bg-muted/30">
-              <h3 className="font-medium text-sm flex items-center gap-2">
-                <Droplets className="w-4 h-4 text-blue-500" />
-                {t('plant_new.care_schedule_title')}
-                <span className="text-xs text-muted-foreground font-normal">{t('plant_new.auto_reminders_hint')}</span>
-              </h3>
+              <div>
+                <h3 className="font-medium text-sm flex items-center gap-2">
+                  <Droplets className="w-4 h-4 text-blue-500" />
+                  {t('plant_new.care_schedule_title')}
+                  <span className="text-xs text-muted-foreground font-normal">{t('plant_new.auto_reminders_hint')}</span>
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Defaults: watering every <strong>3 days</strong>, fertilizing every <strong>20 days</strong>. Adjust to suit your plant — AI will pre-fill if it recognises the species.
+                </p>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -554,7 +563,7 @@ export default function PlantNew() {
                     <FormItem>
                       <FormLabel className="text-xs">{t('plant_new.water_interval')}</FormLabel>
                       <FormControl>
-                        <Input type="number" min={1} placeholder={t('plant_new.water_days_placeholder')} {...field} />
+                        <Input type="number" min={1} placeholder="3" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -567,7 +576,7 @@ export default function PlantNew() {
                     <FormItem>
                       <FormLabel className="text-xs">{t('plant_new.fertilize_interval')}</FormLabel>
                       <FormControl>
-                        <Input type="number" min={1} placeholder={t('plant_new.fertilize_days_placeholder')} {...field} />
+                        <Input type="number" min={1} placeholder="20" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

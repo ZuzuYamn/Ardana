@@ -99,8 +99,10 @@ function SupportMarkdown({ text }: { text: string }) {
 }
 
 // ─── Support Chat Component ───────────────────────────────────────────────────
+// Always renders the full chat UI — collapse/expand is handled by the
+// parent ContactSupportSection, consistent with the other sections.
 
-function SupportChat({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (v: boolean) => void }) {
+function SupportChat() {
   const { t } = useLanguage();
   const SUPPORT_SUGGESTIONS = [
     t('help.support_sugg_1'),
@@ -165,47 +167,17 @@ function SupportChat({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (v: bo
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(input, messages); }
   };
 
-  if (!isOpen) {
-    return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="w-full text-left p-5 rounded-2xl border border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 transition-all group"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-            <Sparkles className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <p className="font-semibold text-foreground">{t('help.support_title')}</p>
-            <p className="text-sm text-muted-foreground">{t('help.support_subtitle')}</p>
-          </div>
-          <MessageCircle className="w-5 h-5 text-primary/60 ml-auto group-hover:text-primary transition-colors" />
-        </div>
-      </button>
-    );
-  }
-
   return (
-    <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-md">
+    <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
       {/* Chat header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/30">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
-            <Sparkles className="w-4 h-4 text-primary" />
-          </div>
-          <div>
-            <p className="font-semibold text-sm">{t('help.support_chat_title')}</p>
-            <p className="text-xs text-muted-foreground">{t('help.support_chat_subtitle')}</p>
-          </div>
+      <div className="flex items-center gap-2.5 px-4 py-3 border-b bg-muted/30">
+        <div className="w-8 h-8 rounded-lg bg-primary/15 flex items-center justify-center">
+          <Sparkles className="w-4 h-4 text-primary" />
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsOpen(false)}
-          className="h-7 w-7 text-muted-foreground hover:text-foreground"
-        >
-          <X className="w-4 h-4" />
-        </Button>
+        <div>
+          <p className="font-semibold text-sm">{t('help.support_chat_title')}</p>
+          <p className="text-xs text-muted-foreground">{t('help.support_chat_subtitle')}</p>
+        </div>
       </div>
 
       {/* Messages */}
@@ -341,7 +313,6 @@ function GettingStartedGuide({ open, onToggle }: { open: boolean; onToggle: () =
 
   return (
     <div className="space-y-4">
-      {/* Section header — click to collapse */}
       <button
         onClick={onToggle}
         className="w-full flex items-center gap-3 group text-left"
@@ -358,7 +329,6 @@ function GettingStartedGuide({ open, onToggle }: { open: boolean; onToggle: () =
         </div>
       </button>
 
-      {/* Steps */}
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
@@ -378,7 +348,6 @@ function GettingStartedGuide({ open, onToggle }: { open: boolean; onToggle: () =
                   transition={{ duration: 0.2, delay: index * 0.06 }}
                   className="flex items-start gap-4 p-5 hover:bg-muted/30 transition-colors"
                 >
-                  {/* Step number + connector */}
                   <div className="flex flex-col items-center flex-shrink-0 mt-0.5">
                     <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold shadow-sm">
                       {index + 1}
@@ -387,8 +356,6 @@ function GettingStartedGuide({ open, onToggle }: { open: boolean; onToggle: () =
                       <div className="w-px flex-1 bg-border mt-2 min-h-[20px]" />
                     )}
                   </div>
-
-                  {/* Icon + content */}
                   <div className="flex items-start gap-3 flex-1 min-w-0 pb-1">
                     <div className="w-9 h-9 rounded-xl bg-primary/8 flex items-center justify-center flex-shrink-0 mt-0.5 border border-primary/15">
                       <Icon className="w-4.5 h-4.5 text-primary" />
@@ -488,28 +455,72 @@ function AITutorialSection({ open, onToggle }: { open: boolean; onToggle: () => 
   );
 }
 
+// ─── Contact Support Section ──────────────────────────────────────────────────
+// Consistent with the other sections: a collapsible header + body.
+// When expanded, the full chat is shown immediately with no intermediate state.
+
+function ContactSupportSection({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const { t } = useLanguage();
+
+  return (
+    <div className="space-y-4">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 group text-left"
+      >
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+          <MessageCircle className="w-5 h-5 text-primary" />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-xl font-serif font-bold">{t('help.support_title')}</h2>
+          <p className="text-sm text-muted-foreground">{t('help.support_subtitle')}</p>
+        </div>
+        <div className="text-muted-foreground group-hover:text-foreground transition-colors">
+          {open ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+        </div>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="chat-content"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <SupportChat />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ─── Main Help Page ───────────────────────────────────────────────────────────
 
 export default function Help() {
   const { t } = useLanguage();
 
-  // ── Section open/closed state (lifted so quick-links can control them) ──────
-  const [guideOpen, setGuideOpen] = useState(true);
+  // All sections start collapsed
+  const [guideOpen, setGuideOpen]       = useState(false);
   const [tutorialOpen, setTutorialOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [faqValue, setFaqValue] = useState<string>('');
+  const [chatOpen, setChatOpen]         = useState(false);
+  const [faqValue, setFaqValue]         = useState<string>('');
 
-  // ── Section refs for smooth scrolling ──────────────────────────────────────
+  // Section refs for smooth scrolling
   const guideRef    = useRef<HTMLDivElement>(null);
   const tutorialRef = useRef<HTMLDivElement>(null);
   const chatRef     = useRef<HTMLDivElement>(null);
   const faqRef      = useRef<HTMLDivElement>(null);
 
-  const scrollTo = (ref: React.RefObject<HTMLDivElement | null>) => {
-    // Small delay lets state update + AnimatePresence start before we scroll
+  // Wait for AnimatePresence to start expanding before scrolling so the
+  // section header lands at the top of the viewport, not the content mid-way.
+  const scrollTo = (ref: React.RefObject<HTMLDivElement | null>, delay = 80) => {
     setTimeout(() => {
       ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 80);
+    }, delay);
   };
 
   const handleGettingStarted = () => {
@@ -584,18 +595,9 @@ export default function Help() {
         <AITutorialSection open={tutorialOpen} onToggle={() => setTutorialOpen((v) => !v)} />
       </div>
 
-      {/* Contact Support AI Chat */}
-      <div ref={chatRef} className="space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <MessageCircle className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-xl font-serif font-bold">{t('help.support_title')}</h2>
-            <p className="text-sm text-muted-foreground">{t('help.support_subtitle')}</p>
-          </div>
-        </div>
-        <SupportChat isOpen={chatOpen} setIsOpen={setChatOpen} />
+      {/* Contact Support */}
+      <div ref={chatRef}>
+        <ContactSupportSection open={chatOpen} onToggle={() => setChatOpen((v) => !v)} />
       </div>
 
       {/* FAQ */}

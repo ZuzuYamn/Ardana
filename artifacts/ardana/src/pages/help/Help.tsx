@@ -100,7 +100,7 @@ function SupportMarkdown({ text }: { text: string }) {
 
 // ─── Support Chat Component ───────────────────────────────────────────────────
 
-function SupportChat() {
+function SupportChat({ isOpen, setIsOpen }: { isOpen: boolean; setIsOpen: (v: boolean) => void }) {
   const { t } = useLanguage();
   const SUPPORT_SUGGESTIONS = [
     t('help.support_sugg_1'),
@@ -111,7 +111,6 @@ function SupportChat() {
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -337,15 +336,14 @@ const GUIDE_STEPS = [
   { icon: BrainCircuit,titleKey: 'help.guide_step5_title', descKey: 'help.guide_step5_desc' },
 ];
 
-function GettingStartedGuide() {
+function GettingStartedGuide({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { t } = useLanguage();
-  const [open, setOpen] = useState(true);
 
   return (
     <div className="space-y-4">
       {/* Section header — click to collapse */}
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={onToggle}
         className="w-full flex items-center gap-3 group text-left"
       >
         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
@@ -410,14 +408,123 @@ function GettingStartedGuide() {
   );
 }
 
+// ─── AI Tutorial Section ──────────────────────────────────────────────────────
+
+const AI_TUTORIAL_STEPS = [
+  {
+    icon: Leaf,
+    title: 'Plant Identification',
+    desc: 'Upload a photo of any plant — the AI instantly identifies the species, common name, and care family.',
+  },
+  {
+    icon: BrainCircuit,
+    title: 'Disease Detection',
+    desc: 'The same photo scan checks for visible diseases, pests, or deficiencies and explains what it found.',
+  },
+  {
+    icon: MessageCircle,
+    title: 'AI Chat Assistant',
+    desc: 'Ask follow-up questions about watering, sunlight, soil, or anything plant-related in the Contact Support chat.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Smart Reminders',
+    desc: 'After saving a plant the AI suggests a watering and fertilising schedule tailored to that species.',
+  },
+];
+
+function AITutorialSection({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <div className="space-y-4">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 group text-left"
+      >
+        <div className="w-10 h-10 rounded-xl bg-secondary/20 flex items-center justify-center flex-shrink-0 group-hover:bg-secondary/40 transition-colors">
+          <FileText className="w-5 h-5 text-secondary-foreground" />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-xl font-serif font-bold">AI Tools Tutorial</h2>
+          <p className="text-sm text-muted-foreground">Learn how the AI features work together</p>
+        </div>
+        <div className="text-muted-foreground group-hover:text-foreground transition-colors">
+          {open ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+        </div>
+      </button>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="tutorial-content"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div className="bg-card border border-border rounded-2xl divide-y divide-border overflow-hidden">
+              {AI_TUTORIAL_STEPS.map(({ icon: Icon, title, desc }, index) => (
+                <motion.div
+                  key={title}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.2, delay: index * 0.06 }}
+                  className="flex items-start gap-4 p-5 hover:bg-muted/30 transition-colors"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-secondary/15 flex items-center justify-center flex-shrink-0 mt-0.5 border border-secondary/20">
+                    <Icon className="w-4.5 h-4.5 text-secondary-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-foreground mb-1">{title}</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ─── Main Help Page ───────────────────────────────────────────────────────────
 
 export default function Help() {
   const { t } = useLanguage();
-  const guideRef = useRef<HTMLDivElement>(null);
 
-  const scrollToGuide = () => {
-    guideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // ── Section open/closed state (lifted so quick-links can control them) ──────
+  const [guideOpen, setGuideOpen] = useState(true);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [faqValue, setFaqValue] = useState<string>('');
+
+  // ── Section refs for smooth scrolling ──────────────────────────────────────
+  const guideRef    = useRef<HTMLDivElement>(null);
+  const tutorialRef = useRef<HTMLDivElement>(null);
+  const chatRef     = useRef<HTMLDivElement>(null);
+  const faqRef      = useRef<HTMLDivElement>(null);
+
+  const scrollTo = (ref: React.RefObject<HTMLDivElement | null>) => {
+    // Small delay lets state update + AnimatePresence start before we scroll
+    setTimeout(() => {
+      ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  };
+
+  const handleGettingStarted = () => {
+    setGuideOpen(true);
+    scrollTo(guideRef);
+  };
+
+  const handleAITutorial = () => {
+    setTutorialOpen(true);
+    scrollTo(tutorialRef);
+  };
+
+  const handleContactSupport = () => {
+    setChatOpen(true);
+    scrollTo(chatRef);
   };
 
   return (
@@ -434,7 +541,7 @@ export default function Help() {
       {/* Quick links */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <button
-          onClick={scrollToGuide}
+          onClick={handleGettingStarted}
           className="text-left rounded-2xl border border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 hover:shadow-md transition-all group"
         >
           <div className="p-6 text-center">
@@ -444,30 +551,41 @@ export default function Help() {
           </div>
         </button>
 
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-6 text-center">
-            <FileText className="w-8 h-8 text-secondary mx-auto mb-3" />
+        <button
+          onClick={handleAITutorial}
+          className="text-left rounded-2xl border border-border bg-card shadow-sm hover:shadow-md hover:border-primary/30 transition-all group"
+        >
+          <div className="p-6 text-center">
+            <FileText className="w-8 h-8 text-secondary mx-auto mb-3 group-hover:scale-110 transition-transform" />
             <h3 className="font-bold mb-2">{t('help.ai_tutorial')}</h3>
             <p className="text-sm text-muted-foreground">{t('help.ai_tutorial_desc')}</p>
-          </CardContent>
-        </Card>
+          </div>
+        </button>
 
-        <Card className="shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-6 text-center">
-            <MessageCircle className="w-8 h-8 text-accent-foreground mx-auto mb-3" />
+        <button
+          onClick={handleContactSupport}
+          className="text-left rounded-2xl border border-border bg-card shadow-sm hover:shadow-md hover:border-primary/30 transition-all group"
+        >
+          <div className="p-6 text-center">
+            <MessageCircle className="w-8 h-8 text-accent-foreground mx-auto mb-3 group-hover:scale-110 transition-transform" />
             <h3 className="font-bold mb-2">{t('help.contact_support')}</h3>
             <p className="text-sm text-muted-foreground">{t('help.contact_support_desc')}</p>
-          </CardContent>
-        </Card>
+          </div>
+        </button>
       </div>
 
       {/* Getting Started Guide */}
       <div ref={guideRef}>
-        <GettingStartedGuide />
+        <GettingStartedGuide open={guideOpen} onToggle={() => setGuideOpen((v) => !v)} />
+      </div>
+
+      {/* AI Tutorial */}
+      <div ref={tutorialRef}>
+        <AITutorialSection open={tutorialOpen} onToggle={() => setTutorialOpen((v) => !v)} />
       </div>
 
       {/* Contact Support AI Chat */}
-      <div className="space-y-4">
+      <div ref={chatRef} className="space-y-4">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
             <MessageCircle className="w-5 h-5 text-primary" />
@@ -477,13 +595,19 @@ export default function Help() {
             <p className="text-sm text-muted-foreground">{t('help.support_subtitle')}</p>
           </div>
         </div>
-        <SupportChat />
+        <SupportChat isOpen={chatOpen} setIsOpen={setChatOpen} />
       </div>
 
       {/* FAQ */}
-      <div>
+      <div ref={faqRef}>
         <h2 className="text-2xl font-serif font-bold mb-6">{t('help.faq_title')}</h2>
-        <Accordion type="single" collapsible className="w-full bg-card border rounded-2xl px-6">
+        <Accordion
+          type="single"
+          collapsible
+          value={faqValue}
+          onValueChange={setFaqValue}
+          className="w-full bg-card border rounded-2xl px-6"
+        >
           <AccordionItem value="item-1" className="border-b">
             <AccordionTrigger className="hover:no-underline font-semibold text-left">
               {t('help.faq_1_q')}

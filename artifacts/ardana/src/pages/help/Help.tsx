@@ -1,5 +1,9 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { HelpCircle, Book, MessageCircle, FileText, Send, User, Bot, Loader2, AlertCircle, RefreshCw, X, Sparkles } from 'lucide-react';
+import {
+  HelpCircle, Book, MessageCircle, FileText, Send, User, Bot,
+  Loader2, AlertCircle, RefreshCw, X, Sparkles,
+  UserPlus, Leaf, Bell, CloudSun, BrainCircuit, ChevronDown, ChevronUp,
+} from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
@@ -323,10 +327,99 @@ function SupportChat() {
   );
 }
 
+// ─── Getting Started Guide ────────────────────────────────────────────────────
+
+const GUIDE_STEPS = [
+  { icon: UserPlus,    titleKey: 'help.guide_step1_title', descKey: 'help.guide_step1_desc' },
+  { icon: Leaf,        titleKey: 'help.guide_step2_title', descKey: 'help.guide_step2_desc' },
+  { icon: Bell,        titleKey: 'help.guide_step3_title', descKey: 'help.guide_step3_desc' },
+  { icon: CloudSun,    titleKey: 'help.guide_step4_title', descKey: 'help.guide_step4_desc' },
+  { icon: BrainCircuit,titleKey: 'help.guide_step5_title', descKey: 'help.guide_step5_desc' },
+];
+
+function GettingStartedGuide() {
+  const { t } = useLanguage();
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div className="space-y-4">
+      {/* Section header — click to collapse */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center gap-3 group text-left"
+      >
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+          <Book className="w-5 h-5 text-primary" />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-xl font-serif font-bold">{t('help.getting_started')}</h2>
+          <p className="text-sm text-muted-foreground">{t('help.getting_started_desc')}</p>
+        </div>
+        <div className="text-muted-foreground group-hover:text-foreground transition-colors">
+          {open ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+        </div>
+      </button>
+
+      {/* Steps */}
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            key="guide-content"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div className="bg-card border border-border rounded-2xl divide-y divide-border overflow-hidden">
+              {GUIDE_STEPS.map(({ icon: Icon, titleKey, descKey }, index) => (
+                <motion.div
+                  key={titleKey}
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.2, delay: index * 0.06 }}
+                  className="flex items-start gap-4 p-5 hover:bg-muted/30 transition-colors"
+                >
+                  {/* Step number + connector */}
+                  <div className="flex flex-col items-center flex-shrink-0 mt-0.5">
+                    <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold shadow-sm">
+                      {index + 1}
+                    </div>
+                    {index < GUIDE_STEPS.length - 1 && (
+                      <div className="w-px flex-1 bg-border mt-2 min-h-[20px]" />
+                    )}
+                  </div>
+
+                  {/* Icon + content */}
+                  <div className="flex items-start gap-3 flex-1 min-w-0 pb-1">
+                    <div className="w-9 h-9 rounded-xl bg-primary/8 flex items-center justify-center flex-shrink-0 mt-0.5 border border-primary/15">
+                      <Icon className="w-4.5 h-4.5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-foreground mb-1">{t(titleKey)}</p>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{t(descKey)}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ─── Main Help Page ───────────────────────────────────────────────────────────
 
 export default function Help() {
   const { t } = useLanguage();
+  const guideRef = useRef<HTMLDivElement>(null);
+
+  const scrollToGuide = () => {
+    guideRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-12">
       {/* Hero */}
@@ -340,13 +433,16 @@ export default function Help() {
 
       {/* Quick links */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="shadow-sm hover:shadow-md transition-shadow border-primary/20 bg-primary/5">
-          <CardContent className="p-6 text-center">
-            <Book className="w-8 h-8 text-primary mx-auto mb-3" />
+        <button
+          onClick={scrollToGuide}
+          className="text-left rounded-2xl border border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 hover:shadow-md transition-all group"
+        >
+          <div className="p-6 text-center">
+            <Book className="w-8 h-8 text-primary mx-auto mb-3 group-hover:scale-110 transition-transform" />
             <h3 className="font-bold mb-2">{t('help.getting_started')}</h3>
             <p className="text-sm text-muted-foreground">{t('help.getting_started_desc')}</p>
-          </CardContent>
-        </Card>
+          </div>
+        </button>
 
         <Card className="shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="p-6 text-center">
@@ -363,6 +459,11 @@ export default function Help() {
             <p className="text-sm text-muted-foreground">{t('help.contact_support_desc')}</p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Getting Started Guide */}
+      <div ref={guideRef}>
+        <GettingStartedGuide />
       </div>
 
       {/* Contact Support AI Chat */}

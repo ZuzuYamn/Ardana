@@ -1,7 +1,31 @@
 import React from "react";
-import { Info, Leaf, Globe, Code, Heart } from "lucide-react";
+import {
+  Info,
+  Leaf,
+  Globe,
+  Code,
+  Heart,
+  Mail,
+  Github,
+  Linkedin,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useLanguage } from "@/lib/contexts/LanguageContext";
+
+const builders = [
+  {
+    name: "Joseph Yammine",
+    email: "josephyammine06@gmail.com",
+    github: "ZuzuYamn",
+    linkedin: "https://www.linkedin.com/in/joseph-yammine-0066633a7",
+  },
+  {
+    name: "Rita Kadib",
+    email: "kadibritaa@gmail.com",
+    github: "RitaK19",
+    linkedin: "", // TODO: add Rita's LinkedIn URL
+  },
+];
 
 export default function About() {
   const { t } = useLanguage();
@@ -20,7 +44,6 @@ export default function About() {
           </p>
         </div>
       </div>
-
       <div className="grid md:grid-cols-2 gap-8">
         <div>
           <h2 className="text-2xl font-serif font-bold mb-4 text-foreground flex items-center gap-2">
@@ -34,7 +57,6 @@ export default function About() {
             {t("about.mission_p2")}
           </p>
         </div>
-
         <Card className="bg-card border shadow-sm">
           <CardContent className="p-8">
             <h3 className="font-serif font-bold text-xl mb-6 border-b pb-4">
@@ -77,6 +99,57 @@ export default function About() {
             </ul>
           </CardContent>
         </Card>
+      </div>
+
+      {/* About Developers */}
+      <div>
+        <h2 className="text-2xl font-serif font-bold mb-6 text-foreground text-center">
+          {t("about.developers_title")}
+        </h2>
+        <div className="grid md:grid-cols-2 gap-8">
+          {builders.map((dev) => (
+            <Card key={dev.github} className="bg-card border shadow-sm">
+              <CardContent className="p-8 text-center">
+                <h3 className="font-serif font-bold text-xl mb-1">
+                  {dev.name}
+                </h3>
+                <p className="text-sm text-muted-foreground mb-1">
+                  {dev.email}
+                </p>
+                <p className="text-sm text-muted-foreground mb-6">
+                  @{dev.github}
+                </p>
+                <div className="flex items-center justify-center gap-4">
+                  <a
+                    href={`mailto:${dev.email}`}
+                    aria-label={`Email ${dev.name}`}
+                    className="p-3 rounded-full bg-muted hover:bg-primary hover:text-primary-foreground transition-colors"
+                  >
+                    <Mail className="w-5 h-5" />
+                  </a>
+                  <a
+                    href={`https://github.com/${dev.github}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${dev.name} on GitHub`}
+                    className="p-3 rounded-full bg-muted hover:bg-primary hover:text-primary-foreground transition-colors"
+                  >
+                    <Github className="w-5 h-5" />
+                  </a>
+                  <a
+                    href={dev.linkedin || undefined}
+                    target={dev.linkedin ? "_blank" : undefined}
+                    rel={dev.linkedin ? "noopener noreferrer" : undefined}
+                    aria-label={`${dev.name} on LinkedIn`}
+                    className="p-3 rounded-full bg-muted hover:bg-primary hover:text-primary-foreground transition-colors"
+                  >
+                    <Linkedin className="w-5 h-5" />
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
       <div className="border-t pt-12 text-center">

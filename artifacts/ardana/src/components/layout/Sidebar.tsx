@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 
 export function Sidebar() {
   const [location] = useLocation();
-  const { t, isRTL } = useLanguage();
+  const { t } = useLanguage();
   const { user, logout } = useAuth();
 
   const navItems = [
@@ -54,8 +54,7 @@ export function Sidebar() {
 
   return (
     <aside className={cn(
-      "fixed inset-y-0 z-40 hidden w-64 bg-sidebar border-sidebar-border overflow-y-auto md:flex flex-col",
-      isRTL ? "right-0 border-l" : "left-0 border-r"
+      "fixed inset-y-0 left-0 z-40 hidden w-64 bg-sidebar border-r border-sidebar-border overflow-y-auto md:flex flex-col"
     )}>
       {/* Logo */}
       <div className="p-6">

@@ -141,6 +141,13 @@ export default function PlantDetail() {
         </div>
 
         <div className="flex gap-2">
+          <Link href={`/plants/${id}/edit`}>
+            <Button variant="outline" className="gap-2">
+              <Edit className="w-4 h-4" />
+              Edit
+            </Button>
+          </Link>
+
           <Dialog open={isLogDialogOpen} onOpenChange={setIsLogDialogOpen}>
             <DialogTrigger asChild>
               <Button className="bg-primary text-primary-foreground">{t('plant.quick_log')}</Button>

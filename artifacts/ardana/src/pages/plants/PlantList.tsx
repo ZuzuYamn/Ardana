@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useListPlants } from '@workspace/api-client-react';
 import { Link, useSearch } from 'wouter';
-import { Leaf, Plus, Search, Filter, Sprout, AlertCircle, Droplets, MapPin, Activity, X } from 'lucide-react';
+import { Leaf, Plus, Search, Filter, Sprout, AlertCircle, Droplets, MapPin, Activity, X, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -171,11 +171,11 @@ export default function PlantList() {
         >
           {plants.map((plant) => (
             <motion.div variants={item} key={plant.id}>
-              <Link href={`/plants/${plant.id}`} className="block h-full outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring rounded-2xl group">
-                <div className={cn(
-                  "h-full rounded-2xl border bg-card overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1",
-                  healthStatus === 'attention' && (plant.healthStatus === 'poor' || plant.healthStatus === 'moderate') && "ring-1 ring-destructive/30",
-                )}>
+              <div className={cn(
+                "h-full rounded-2xl border bg-card overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 hover:-translate-y-1 group",
+                healthStatus === 'attention' && (plant.healthStatus === 'poor' || plant.healthStatus === 'moderate') && "ring-1 ring-destructive/30",
+              )}>
+                <Link href={`/plants/${plant.id}`} className="block outline-none">
                   <div className="h-48 bg-muted relative overflow-hidden">
                     {plant.photoUrl ? (
                       <img src={plant.photoUrl} alt={plant.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
@@ -204,7 +204,7 @@ export default function PlantList() {
                     </div>
                   </div>
 
-                  <div className="p-5">
+                  <div className="p-5 pb-3">
                     <h3 className="font-serif text-xl font-bold text-foreground mb-1 group-hover:text-primary transition-colors">{plant.name}</h3>
                     <p className="text-sm text-muted-foreground italic mb-4">{plant.species || t('plants.unknown_species')}</p>
 
@@ -223,8 +223,19 @@ export default function PlantList() {
                       </div>
                     </div>
                   </div>
+                </Link>
+
+                {/* Edit button — separate from the card Link to avoid nested interactive elements */}
+                <div className="px-5 pb-4 pt-2 border-t border-border/50">
+                  <Link
+                    href={`/plants/${plant.id}/edit`}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    Edit plant
+                  </Link>
                 </div>
-              </Link>
+              </div>
             </motion.div>
           ))}
         </motion.div>

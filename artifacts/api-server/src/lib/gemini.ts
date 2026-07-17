@@ -6,12 +6,12 @@ import {
 } from "@google/generative-ai";
 import { logger } from "./logger";
 
-// ─── Models ───────────────────────────────────────────────────────────────────
-// Tried in order when rate-limited. Quotas are per-model on the free tier, so
-// falling back to a different model uses a separate daily/minute bucket.
+// ─── Model ────────────────────────────────────────────────────────────────────
+// All API keys belong to different Google accounts. Rate limits are per account,
+// not per model, so switching models on an exhausted key provides no benefit.
+// We use a single fixed model and rotate only between keys.
 
-const DEFAULT_MODEL = "gemini-2.0-flash";
-const FALLBACK_MODELS = ["gemini-1.5-flash", "gemini-1.5-flash-8b"];
+const DEFAULT_MODEL = "gemini-1.5-flash";
 
 // ─── Key pool ─────────────────────────────────────────────────────────────────
 // Loads up to 4 keys from env. GEMINI_API_KEY_1 falls back to GEMINI_API_KEY
@@ -118,9 +118,11 @@ async function tryAllKeysForModel<T>(
 }
 
 /**
- * Run `fn` with automatic key rotation AND model fallback.
- * Tries every key on the primary model first; if all are rate-limited it
- * moves to the next fallback model (separate quota bucket on the free tier).
+ * Run `fn` with automatic key rotation.
+ * Tries every available key in round-robin order for the given model.
+ * Since all keys belong to different Google accounts, switching models on an
+ * exhausted key would not gain extra quota — only rotating to the next key helps.
+ * Throws when all keys are rate-limited.
  */
 async function runWithRotation<T>(
   modelName: string,
@@ -128,20 +130,15 @@ async function runWithRotation<T>(
 ): Promise<T> {
   if (pool.length === 0) {
     throw new Error(
-      "No Gemini API keys are configured. Add GEMINI_API_KEY_1 (or GEMINI_API_KEY) in environment settings.",
+      "No Gemini API keys are configured. Add GEMINI_API_KEY (or GEMINI_API_KEY_2/3/4) in environment settings.",
     );
   }
 
-  const modelsToTry = [modelName, ...FALLBACK_MODELS.filter((m) => m !== modelName)];
-
-  for (const model of modelsToTry) {
-    const outcome = await tryAllKeysForModel(model, fn);
-    if (outcome) return outcome.result;
-    logger.warn({ model }, `All keys exhausted for ${model} — trying next fallback model`);
-  }
+  const outcome = await tryAllKeysForModel(modelName, fn);
+  if (outcome) return outcome.result;
 
   throw new Error(
-    "All Gemini API keys and fallback models are rate-limited. Please wait a few minutes and try again.",
+    "All Gemini API keys are currently rate-limited. Please wait a few minutes and try again.",
   );
 }
 

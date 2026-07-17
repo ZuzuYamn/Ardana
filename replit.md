@@ -1,57 +1,47 @@
-# Ardana — Smart Plant Care & Farm Management
+# Ardana — Smart Plant Care
 
-A full-stack plant care and farm management app with AI-powered plant identification, disease detection, weather monitoring, and reminder management.
+A full-stack plant care management web app with AI-powered plant identification, disease detection, weather integration, and care reminders.
 
-## Tech Stack
+## Stack
 
-- **Frontend:** React 19, Vite, TypeScript, Tailwind CSS v4, Radix UI, Framer Motion, TanStack Query, Wouter
-- **Backend:** Express 5, Node.js, TypeScript, Pino logging, Drizzle ORM
-- **Database:** PostgreSQL (Replit managed — `DATABASE_URL` is set automatically)
-- **AI:** Google Gemini (plant ID, disease detection, chat assistant, support)
-- **Weather:** WeatherAPI.com + OpenWeatherMap
+- **Frontend**: React 19, Vite 7, Tailwind CSS 4, Radix UI, Framer Motion, Leaflet maps, Wouter routing, TanStack Query
+- **Backend**: Express 5, Drizzle ORM (PostgreSQL), Pino logging, `@google/generative-ai` (Gemini)
+- **Shared libs**: `lib/db` (schema + Drizzle), `lib/api-spec` (OpenAPI), `lib/api-client-react` (generated hooks), `lib/api-zod` (Zod schemas)
 
-## Monorepo Structure
-
-```
-artifacts/
-  ardana/          # React + Vite frontend (served at /)
-  api-server/      # Express API backend (served at /api)
-lib/
-  db/              # Drizzle schema & PostgreSQL client
-  api-spec/        # OpenAPI specification (source of truth)
-  api-zod/         # Zod schemas generated from OpenAPI
-  api-client-react/ # React Query hooks
-```
-
-## Running the App
+## Running the project
 
 Both services start automatically via Replit workflows:
 
-- **Frontend:** `PORT=5173 BASE_PATH=/ pnpm --filter @workspace/ardana run dev`
-- **API Server:** `PORT=8080 pnpm --filter @workspace/api-server run dev`
+| Workflow | Command | Port |
+|---|---|---|
+| API Server | `pnpm --filter @workspace/api-server run dev` | 8080 |
+| Web (Ardana) | `pnpm --filter @workspace/ardana run dev` | 5173 |
 
-To install dependencies: `pnpm install`
+To install dependencies: `pnpm install` from the root.
 
-## Environment Variables & Secrets
+## Environment Secrets
 
 All secrets are stored in Replit Secrets (never committed to git):
 
 | Secret | Purpose |
-|--------|---------|
+|---|---|
 | `SESSION_SECRET` | Express session signing |
-| `GEMINI_API_KEY` | Fallback Gemini API key for all AI features |
-| `CHAT_AI_API_KEY` | AI chat assistant (Agent 1) |
-| `VISION_AI_API_KEY` | Plant ID & disease detection (Agent 2) |
-| `SUPPORT_AI_API_KEY` | Support chat (Agent 3) |
-| `WEATHERAPI_KEY` | Weather data & geocoding (WeatherAPI.com) |
-| `OPENWEATHERMAP_API_KEY` | Weather map tiles (OpenWeatherMap) |
+| `GEMINI_API_KEY` | Gemini AI (plant ID, disease detection). Also supports `GEMINI_API_KEY_2/3/4` for key rotation |
+| `WEATHERAPI_KEY` | WeatherAPI.com weather data |
+| `OPENWEATHERMAP_API_KEY` | OpenWeatherMap fallback weather data |
 
-`DATABASE_URL` is managed automatically by Replit — do not set it manually.
+`DATABASE_URL` and `PG*` vars are managed automatically by Replit.
 
-## Database Schema
+## Database
 
-Tables: `users`, `plants`, `reminders`, `user_sessions`
+Replit's built-in PostgreSQL. Schema managed by Drizzle ORM in `lib/db/src/schema/`:
+- `users` — accounts with hashed passwords
+- `plants` — plant records per user
+- `reminders` — care reminders per plant
+- `user_sessions` — Express session store (created manually; never use `createTableIfMissing`)
 
-## User Preferences
+To push schema changes: `pnpm --filter @workspace/db run push` (dev only — production schema is managed by Replit's Publish flow).
 
-- Secrets stored in Replit Secrets (not .env files), so they are never pushed to GitHub.
+## User preferences
+
+- API keys and secrets stored in Replit Secrets (not in code or git)

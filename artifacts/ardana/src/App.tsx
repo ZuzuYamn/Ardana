@@ -16,6 +16,7 @@ import Dashboard from '@/pages/dashboard/Dashboard';
 import PlantList from '@/pages/plants/PlantList';
 import PlantNew from '@/pages/plants/PlantNew';
 import PlantDetail from '@/pages/plants/PlantDetail';
+import PlantEdit from '@/pages/plants/PlantEdit';
 import PlantIdentifier from '@/pages/ai/PlantIdentifier';
 import DiseaseDetector from '@/pages/ai/DiseaseDetector';
 import AiChat from '@/pages/ai/AiChat';
@@ -79,6 +80,7 @@ function AppRoutes() {
         <Route path="/" component={Dashboard} />
         <Route path="/plants" component={PlantList} />
         <Route path="/plants/new" component={PlantNew} />
+        <Route path="/plants/:id/edit" component={PlantEdit} />
         <Route path="/plants/:id" component={PlantDetail} />
         <Route path="/ai/chat" component={AiChat} />
         <Route path="/ai/identify" component={PlantIdentifier} />

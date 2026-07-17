@@ -84,10 +84,10 @@ export default function Dashboard() {
         animate="show"
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6"
       >
-        <motion.div variants={item}>
-          <Link href="/plants">
-            <Card className="bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all cursor-pointer">
-              <CardContent className="p-6">
+        <motion.div variants={item} className="h-full">
+          <Link href="/plants" className="block h-full">
+            <Card className="h-full bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all cursor-pointer">
+              <CardContent className="p-6 h-full flex flex-col justify-center">
                 <div className="flex items-center justify-between">
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-muted-foreground">
@@ -110,10 +110,10 @@ export default function Dashboard() {
           </Link>
         </motion.div>
 
-        <motion.div variants={item}>
-          <Link href="/plants?attention=true" className="block">
-            <Card className="bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all hover:border-destructive/40 hover:shadow-md cursor-pointer group">
-              <CardContent className="p-6">
+        <motion.div variants={item} className="h-full">
+          <Link href="/plants?attention=true" className="block h-full">
+            <Card className="h-full bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all hover:border-destructive/40 hover:shadow-md cursor-pointer group">
+              <CardContent className="p-6 h-full flex flex-col justify-center">
                 <div className="flex items-center justify-between">
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-muted-foreground">
@@ -127,10 +127,8 @@ export default function Dashboard() {
                       )}
                     </p>
                   </div>
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center group-hover:bg-                                destructive/20 transition-colors">
-                      <AlertCircle className="w-6 h-6 text-destructive" />
-                    </div>
+                  <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center group-hover:bg-destructive/20 transition-colors">
+                    <AlertCircle className="w-6 h-6 text-destructive" />
                   </div>
                 </div>
               </CardContent>
@@ -138,10 +136,10 @@ export default function Dashboard() {
           </Link>
         </motion.div>
 
-        <motion.div variants={item}>
-          <Link href="/reminders">
-            <Card className="bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all cursor-pointer">
-              <CardContent className="p-6">
+        <motion.div variants={item} className="h-full">
+          <Link href="/reminders" className="block h-full">
+            <Card className="h-full bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all cursor-pointer">
+              <CardContent className="p-6 h-full flex flex-col justify-center">
                 <div className="flex items-center justify-between">
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-muted-foreground">
@@ -165,9 +163,9 @@ export default function Dashboard() {
           </Link>
         </motion.div>
 
-        <motion.div variants={item}>
-          <Card className="bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all">
-            <CardContent className="p-6">
+        <motion.div variants={item} className="h-full">
+          <Card className="h-full bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all">
+            <CardContent className="p-6 h-full flex flex-col justify-center">
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">

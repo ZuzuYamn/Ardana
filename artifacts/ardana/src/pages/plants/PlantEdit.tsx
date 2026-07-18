@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { LocationPicker } from '@/components/LocationPicker';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -227,14 +228,21 @@ export default function PlantEdit() {
       const payload: Record<string, unknown> = {
         name: data.name,
         type: data.type,
-        species: data.species || null,
-        location: data.location || null,
-        plantedDate: data.plantedDate || null,
         healthStatus: data.healthStatus,
-        wateringIntervalDays: data.wateringIntervalDays === '' ? null : Number(data.wateringIntervalDays) || null,
-        fertilizingIntervalDays: data.fertilizingIntervalDays === '' ? null : Number(data.fertilizingIntervalDays) || null,
-        notes: data.notes || null,
       };
+
+      // Only include optional fields when they have a real value.
+      // The backend treats explicit null as a value to overwrite with, so omitting preserves existing data.
+      if (data.species?.trim()) payload.species = data.species.trim();
+      if (data.location?.trim()) payload.location = data.location.trim();
+      if (data.plantedDate) payload.plantedDate = data.plantedDate;
+      if (data.notes?.trim()) payload.notes = data.notes.trim();
+      if (data.wateringIntervalDays !== '' && data.wateringIntervalDays != null) {
+        payload.wateringIntervalDays = Number(data.wateringIntervalDays);
+      }
+      if (data.fertilizingIntervalDays !== '' && data.fertilizingIntervalDays != null) {
+        payload.fertilizingIntervalDays = Number(data.fertilizingIntervalDays);
+      }
 
       // Include new photo if one was uploaded
       if (newImageData) {
@@ -574,7 +582,12 @@ export default function PlantEdit() {
                   <FormItem>
                     <FormLabel>{t('plant_new.location_field_label')}</FormLabel>
                     <FormControl>
-                      <Input placeholder={t('plant_new.location_field_placeholder')} {...field} />
+                      <LocationPicker
+                        value={field.value ?? ''}
+                        onChange={field.onChange}
+                        placeholder={t('plant_new.location_field_placeholder')}
+                        disabled={isSaving}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

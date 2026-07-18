@@ -3,7 +3,6 @@ import {
   Send,
   ImagePlus,
   Camera,
-  Leaf,
   User,
   Trash2,
   AlertCircle,
@@ -11,6 +10,7 @@ import {
   RefreshCw,
   Sparkles,
 } from "lucide-react";
+import { ArdanaLogo } from "@/components/ui/ArdanaLogo";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -272,7 +272,7 @@ function MessageBubble({
             : "bg-secondary text-secondary-foreground",
         )}
       >
-        {isUser ? <User className="w-4 h-4" /> : <Leaf className="w-4 h-4" />}
+        {isUser ? <User className="w-4 h-4" /> : <ArdanaLogo size={20} variant="transparent" />}
       </div>
 
       {/* Bubble */}
@@ -585,7 +585,7 @@ export default function AiChat() {
         {isEmpty ? (
           <div className="h-full flex flex-col items-center justify-center gap-6 text-center py-8">
             <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <Leaf className="w-8 h-8 text-primary" />
+              <ArdanaLogo size={40} variant="transparent" />
             </div>
             <div className="space-y-1.5">
               <h2 className="font-serif font-bold text-xl">

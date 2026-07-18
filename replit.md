@@ -26,7 +26,7 @@ All secrets are stored in Replit Secrets (never committed to git):
 | Secret | Purpose |
 |---|---|
 | `SESSION_SECRET` | Express session signing |
-| `GEMINI_API_KEY` | Google Gemini 2.5 Flash (plant identification, disease detection, chat). Add `GEMINI_API_KEY_2`, `GEMINI_API_KEY_3` for rotation |
+| `GEMINI_API_KEY` | Google Gemini 2.5 Flash (plant identification, disease detection, chat). Add `GEMINI_API_KEY_2` through `GEMINI_API_KEY_8` for rotation |
 | `WEATHERAPI_KEY` | WeatherAPI.com weather data |
 | `OPENWEATHERMAP_API_KEY` | OpenWeatherMap fallback weather data |
 

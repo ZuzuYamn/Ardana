@@ -1,6 +1,6 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { LocationPicker } from '@/components/LocationPicker';
 import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -35,7 +36,56 @@ interface PlantIdentification {
   soilType: string | null;
   suggestedWateringIntervalDays: number | null;
   suggestedFertilizingIntervalDays: number | null;
+  estimatedAgeYears: number | null;
   error: string | null;
+}
+
+// Estimate a realistic planting date from an AI-estimated age in years.
+// Adjusts the result to the most likely planting season for the location's hemisphere
+// (spring in temperate zones; current month shifted by age for tropical zones).
+// Falls back to (today - age years) if the location is unknown or geocoding fails.
+async function calculatePlantingDateFromAge({
+  ageYears,
+  currentDate,
+  location,
+}: {
+  ageYears: number;
+  currentDate: Date;
+  location?: string;
+}): Promise<string> {
+  const age = Math.max(0, ageYears);
+  const targetYear = currentDate.getFullYear() - age;
+
+  // Seedlings or missing location: use the simple year subtraction.
+  if (!location?.trim() || age === 0) {
+    const date = new Date(targetYear, currentDate.getMonth(), currentDate.getDate());
+    return date.toISOString().split('T')[0];
+  }
+
+  // Try to use the location to pick a hemisphere-appropriate planting season.
+  try {
+    const res = await fetch(`/api/weather/geocode?q=${encodeURIComponent(location)}`);
+    if (!res.ok) throw new Error('Geocoding failed');
+    const data = (await res.json()) as Array<{ lat: number }>;
+    if (!data.length) throw new Error('No results');
+    const lat = data[0].lat;
+    const isTropical = Math.abs(lat) <= 23.5;
+    const isNorthern = lat >= 0;
+
+    if (isTropical) {
+      // Tropical planting can happen year-round; keep the original month shifted by years.
+      const date = new Date(targetYear, currentDate.getMonth(), currentDate.getDate());
+      return date.toISOString().split('T')[0];
+    }
+
+    // Temperate zones: spring planting is the most common default.
+    const plantingMonth = isNorthern ? 3 : 9; // April in Northern Hemisphere, October in Southern.
+    const date = new Date(targetYear, plantingMonth, 15);
+    return date.toISOString().split('T')[0];
+  } catch {
+    const date = new Date(targetYear, currentDate.getMonth(), currentDate.getDate());
+    return date.toISOString().split('T')[0];
+  }
 }
 
 interface DiseaseDetection {
@@ -51,6 +101,14 @@ interface DiseaseDetection {
 interface AIResults {
   identification: PlantIdentification;
   disease: DiseaseDetection;
+}
+
+interface CareScheduleResult {
+  wateringIntervalDays: number;
+  fertilizingIntervalDays: number;
+  wateringNotes: string;
+  fertilizingNotes: string;
+  explanation: string;
 }
 
 // ─── Image Compression ────────────────────────────────────────────────────────
@@ -108,7 +166,12 @@ export default function PlantNew() {
   const [imageData, setImageData] = useState<{ dataUrl: string; base64: string; mimeType: string } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiResults, setAiResults] = useState<AIResults | null>(null);
+  const [aiEstimatedPlantedDate, setAiEstimatedPlantedDate] = useState<string | null>(null);
+  const [careSchedule, setCareSchedule] = useState<CareScheduleResult | null>(null);
+  const [isLoadingCareSchedule, setIsLoadingCareSchedule] = useState(false);
+  const [lastRecommendedSchedule, setLastRecommendedSchedule] = useState<{ watering: number; fertilizing: number } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const hasUserEditedPlantedDate = useRef(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(buildFormSchema(t)),
@@ -126,6 +189,8 @@ export default function PlantNew() {
       notes: '',
     },
   });
+
+  const selectedType = useWatch({ control: form.control, name: 'type' });
 
   // ── Image Selection & AI Analysis ─────────────────────────────────────────
 
@@ -170,6 +235,22 @@ export default function PlantNew() {
         if (identification.suggestedFertilizingIntervalDays) {
           form.setValue('fertilizingIntervalDays', identification.suggestedFertilizingIntervalDays as any);
         }
+        setLastRecommendedSchedule({
+          watering: identification.suggestedWateringIntervalDays ?? 3,
+          fertilizing: identification.suggestedFertilizingIntervalDays ?? 20,
+        });
+        if (identification.estimatedAgeYears != null) {
+          const currentLocation = form.getValues('location');
+          const estimatedDate = await calculatePlantingDateFromAge({
+            ageYears: identification.estimatedAgeYears,
+            currentDate: new Date(),
+            location: currentLocation,
+          });
+          setAiEstimatedPlantedDate(estimatedDate);
+          if (!hasUserEditedPlantedDate.current) {
+            form.setValue('plantedDate', estimatedDate);
+          }
+        }
         if (!disease.isHealthy && disease.urgency === 'immediate') {
           form.setValue('healthStatus', 'poor');
         } else if (!disease.isHealthy) {
@@ -190,8 +271,93 @@ export default function PlantNew() {
   const clearImage = () => {
     setImageData(null);
     setAiResults(null);
+    setAiEstimatedPlantedDate(null);
+    setCareSchedule(null);
+    setLastRecommendedSchedule(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
+
+  // Fetch a location-aware and weather-aware care schedule whenever the relevant inputs change.
+  const selectedLocation = useWatch({ control: form.control, name: 'location' });
+  const selectedSpecies = useWatch({ control: form.control, name: 'species' });
+
+  // Recalculate the AI-estimated planting date when the user changes location,
+  // provided they have not manually edited the date themselves.
+  useEffect(() => {
+    if (aiResults?.identification.estimatedAgeYears == null || hasUserEditedPlantedDate.current) return;
+    let cancelled = false;
+    const currentLocation = form.getValues('location');
+    calculatePlantingDateFromAge({
+      ageYears: aiResults.identification.estimatedAgeYears,
+      currentDate: new Date(),
+      location: currentLocation,
+    }).then((estimatedDate) => {
+      if (cancelled) return;
+      setAiEstimatedPlantedDate(estimatedDate);
+      form.setValue('plantedDate', estimatedDate);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedLocation, aiResults, form]);
+
+  const fetchCareSchedule = useCallback(async () => {
+    const location = form.getValues('location');
+    if (!location?.trim() || !aiResults?.identification) return;
+    const { species, commonName, estimatedAgeYears } = aiResults.identification;
+    if (!species && !commonName) return;
+
+    setIsLoadingCareSchedule(true);
+    try {
+      const res = await fetch('/api/ai/care-schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          species,
+          commonName,
+          estimatedAgeYears,
+          location,
+          plantType: selectedType,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? 'Failed to generate care schedule');
+      }
+      const schedule: CareScheduleResult = await res.json();
+      setCareSchedule(schedule);
+
+      // Only overwrite the form values if the user has not manually edited them.
+      const currentWatering = form.getValues('wateringIntervalDays');
+      const currentFertilizing = form.getValues('fertilizingIntervalDays');
+      const isUnchanged =
+        lastRecommendedSchedule === null
+          ? (currentWatering === 3 && currentFertilizing === 20)
+          : (currentWatering === lastRecommendedSchedule.watering && currentFertilizing === lastRecommendedSchedule.fertilizing);
+
+      if (isUnchanged) {
+        form.setValue('wateringIntervalDays', schedule.wateringIntervalDays as any);
+        form.setValue('fertilizingIntervalDays', schedule.fertilizingIntervalDays as any);
+        setLastRecommendedSchedule({
+          watering: schedule.wateringIntervalDays,
+          fertilizing: schedule.fertilizingIntervalDays,
+        });
+      }
+    } catch (err) {
+      // Silent failure: schedule is a value-add, not required for the form.
+      console.error('Care schedule generation failed:', err);
+    } finally {
+      setIsLoadingCareSchedule(false);
+    }
+  }, [aiResults, form, lastRecommendedSchedule, selectedType]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      void fetchCareSchedule();
+    }, 800);
+    return () => clearTimeout(timeout);
+  }, [selectedLocation, selectedSpecies, selectedType, aiResults, fetchCareSchedule]);
 
   // ── Save ──────────────────────────────────────────────────────────────────
 
@@ -301,11 +467,11 @@ export default function PlantNew() {
             </button>
           ) : (
             /* Image preview */
-            <div className="relative">
+            <div className="relative bg-muted/50 rounded-xl border border-border overflow-hidden flex items-center justify-center">
               <img
                 src={imageData.dataUrl}
                 alt="Plant preview"
-                className="w-full h-64 object-cover rounded-xl"
+                className="w-full h-full max-h-[320px] sm:max-h-[360px] object-contain rounded-xl"
               />
               <button
                 type="button"
@@ -385,6 +551,12 @@ export default function PlantNew() {
                         <div>
                           <p className="text-xs text-muted-foreground flex items-center gap-1"><Droplets className="w-3 h-3" /> {t('plant_new.water_every')}</p>
                           <p className="font-medium">{aiResults.identification.suggestedWateringIntervalDays} {t('plant_new.days_suffix')}</p>
+                        </div>
+                      )}
+                      {aiResults.identification.estimatedAgeYears != null && (
+                        <div>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1"><Trees className="w-3 h-3" /> {t('plant_new.estimated_age')}</p>
+                          <p className="font-medium">{aiResults.identification.estimatedAgeYears} {t('plant_new.years_old')}</p>
                         </div>
                       )}
                     </div>
@@ -521,7 +693,12 @@ export default function PlantNew() {
                   <FormItem>
                     <FormLabel>{t('plant_new.location_field_label')}</FormLabel>
                     <FormControl>
-                      <Input placeholder={t('plant_new.location_field_placeholder')} {...field} />
+                      <LocationPicker
+                        value={field.value ?? ''}
+                        onChange={field.onChange}
+                        placeholder={t('plant_new.location_field_placeholder')}
+                        disabled={isSaving}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -535,8 +712,20 @@ export default function PlantNew() {
                   <FormItem>
                     <FormLabel>{t('plant_new.planting_date_label')}</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input
+                        type="date"
+                        {...field}
+                        onChange={(e) => {
+                          hasUserEditedPlantedDate.current = true;
+                          field.onChange(e);
+                        }}
+                      />
                     </FormControl>
+                    {aiResults?.identification.estimatedAgeYears != null && (
+                      <p className="text-xs text-muted-foreground">
+                        {t('plant_new.estimated_planting_date', { age: String(aiResults.identification.estimatedAgeYears) })}
+                      </p>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -552,9 +741,20 @@ export default function PlantNew() {
                   <span className="text-xs text-muted-foreground font-normal">{t('plant_new.auto_reminders_hint')}</span>
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Defaults: watering every <strong>3 days</strong>, fertilizing every <strong>20 days</strong>. Adjust to suit your plant — AI will pre-fill if it recognises the species.
+                  {t('plant_new.schedule_desc')}
                 </p>
               </div>
+              {isLoadingCareSchedule && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  {t('plant_new.schedule_loading')}
+                </div>
+              )}
+              {careSchedule?.explanation && !isLoadingCareSchedule && (
+                <p className="text-xs text-primary-foreground/80 bg-primary/10 rounded-lg px-3 py-2">
+                  {careSchedule.explanation}
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -565,6 +765,9 @@ export default function PlantNew() {
                       <FormControl>
                         <Input type="number" min={1} placeholder="3" {...field} />
                       </FormControl>
+                      {careSchedule?.wateringNotes && (
+                        <p className="text-xs text-muted-foreground">{careSchedule.wateringNotes}</p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
@@ -578,6 +781,9 @@ export default function PlantNew() {
                       <FormControl>
                         <Input type="number" min={1} placeholder="20" {...field} />
                       </FormControl>
+                      {careSchedule?.fertilizingNotes && (
+                        <p className="text-xs text-muted-foreground">{careSchedule.fertilizingNotes}</p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}

@@ -140,7 +140,7 @@ router.post("/plants/with-analysis", async (req, res): Promise<void> => {
     try {
       const IDENTIFY_PROMPT = `You are an expert botanist. Analyze this plant image and identify it.
 Return a valid JSON object (no markdown, no code blocks) with these exact fields:
-{"species":"scientific name or null","commonName":"common name or null","family":"plant family or null","confidence":"high|medium|low","description":"brief description","wateringRequirements":"watering guidance","growingConditions":"soil/temperature/climate","fertilizers":"recommended fertilizers","careRecommendations":"care tips","sunlight":"sunlight requirements","soilType":"soil type and pH","suggestedWateringIntervalDays":number or null,"suggestedFertilizingIntervalDays":number or null,"error":null}`;
+{"species":"scientific name or null","commonName":"common name or null","family":"plant family or null","confidence":"high|medium|low","description":"brief description","wateringRequirements":"watering guidance","growingConditions":"soil/temperature/climate","fertilizers":"recommended fertilizers","careRecommendations":"care tips","sunlight":"sunlight requirements","soilType":"soil type and pH","suggestedWateringIntervalDays":number or null,"suggestedFertilizingIntervalDays":number or null,"estimatedAgeYears":number or null,"error":null}`;
 
       const DISEASE_PROMPT = `You are an expert plant pathologist. Analyze this plant image for health.
 Return a valid JSON object (no markdown, no code blocks) with these exact fields:
@@ -309,6 +309,23 @@ router.get("/plants/:id", async (req, res): Promise<void> => {
   res.json({ ...plant, reminders: plantReminders });
 });
 
+// Validation schema for updating a plant (mirrors the create endpoint so the
+// edit page can send photoDataUrl and pre-analyzed AI results too).
+const UpdatePlantWithAnalysisBody = z.object({
+  name: z.string().min(1).optional(),
+  type: z.string().optional(),
+  species: z.string().nullish(),
+  location: z.string().nullish(),
+  notes: z.string().nullish(),
+  plantedDate: z.string().nullish(),
+  healthStatus: z.string().optional(),
+  wateringIntervalDays: z.coerce.number().int().positive().nullish(),
+  fertilizingIntervalDays: z.coerce.number().int().positive().nullish(),
+  photoDataUrl: z.string().nullish(),
+  aiIdentification: z.string().nullish(),
+  aiDiseaseDetection: z.string().nullish(),
+});
+
 // ─────────────────────────────────────────────────────────────
 // PATCH /plants/:id
 // ─────────────────────────────────────────────────────────────
@@ -320,15 +337,27 @@ router.patch("/plants/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const parsed = UpdatePlantBody.safeParse(req.body);
+  const parsed = UpdatePlantWithAnalysisBody.safeParse(req.body);
   if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
+    res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
     return;
   }
 
+  const {
+    photoDataUrl,
+    aiIdentification,
+    aiDiseaseDetection,
+    ...rest
+  } = parsed.data;
+
+  const updateValues: Record<string, unknown> = { ...rest };
+  if (photoDataUrl) updateValues.photoUrl = photoDataUrl;
+  if (aiIdentification !== undefined) updateValues.aiIdentification = aiIdentification;
+  if (aiDiseaseDetection !== undefined) updateValues.aiDiseaseDetection = aiDiseaseDetection;
+
   const [plant] = await db
     .update(plantsTable)
-    .set(parsed.data)
+    .set(updateValues)
     .where(and(eq(plantsTable.id, params.data.id), eq(plantsTable.userId, userId)))
     .returning();
 

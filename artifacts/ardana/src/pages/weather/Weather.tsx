@@ -14,7 +14,7 @@ import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIconUrl from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import {
-  Cloud, CloudRain, Sun, Wind, Droplets, MapPin, Search,
+  Cloud, CloudRain, Sun, Wind, Droplets, MapPin, Search, Locate,
   Thermometer, Eye, Gauge, Leaf, CloudSun, Star, StarOff,
   ChevronDown, ChevronUp, AlertTriangle, Info, Bell,
   Zap, Sprout, Scissors, FlaskConical, Wheat, Shield,
@@ -22,6 +22,8 @@ import {
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/lib/contexts/LanguageContext";
+import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -45,7 +47,6 @@ interface GeoLocation {
   lat: number; lon: number; label: string;
 }
 type ChartMetric = "temperature" | "precipitation" | "humidity" | "windSpeed" | "uvIndex";
-type MapLayer = "precipitation_new" | "temp_new" | "wind_new" | "clouds_new";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatHour(timeStr: string) {
@@ -124,13 +125,6 @@ const severityIconColor: Record<string, string> = {
   critical: "text-red-500 bg-red-100",
 };
 
-const MAP_LAYERS: { key: MapLayer; label: string }[] = [
-  { key: "precipitation_new", label: "Rain" },
-  { key: "temp_new", label: "Temp" },
-  { key: "wind_new", label: "Wind" },
-  { key: "clouds_new", label: "Clouds" },
-];
-
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
 function ChangeMapView({ center }: { center: [number, number] }) {
@@ -161,6 +155,9 @@ function MetricCard({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function Weather() {
+  const { t } = useLanguage();
+  const { toast } = useToast();
+
   // Location state
   const [coords, setCoords] = useState({ lat: 33.89, lon: 35.5, name: "Beirut, Lebanon" });
   const [savedLocations, setSavedLocations] = useState<GeoLocation[]>(() => {
@@ -169,13 +166,13 @@ export default function Weather() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<GeoLocation[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // UI state
   const [chartMetric, setChartMetric] = useState<ChartMetric>("temperature");
-  const [mapLayer, setMapLayer] = useState<MapLayer>("precipitation_new");
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [aiAlerts, setAiAlerts] = useState<WeatherAlert[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
@@ -240,6 +237,67 @@ export default function Weather() {
   const currentIsSaved = savedLocations.some(
     (l) => Math.abs(l.lat - coords.lat) < 0.01 && Math.abs(l.lon - coords.lon) < 0.01
   );
+
+  // Use browser geolocation to detect current position and add it as a saved location
+  const handleUseCurrentLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      toast({
+        title: t("weather.location_unavailable"),
+        description: t("weather.location_error"),
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsDetectingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const r = await fetch(`/api/weather/geocode?q=${latitude},${longitude}`);
+          if (!r.ok) throw new Error("Reverse geocode failed");
+          const data: GeoLocation[] = await r.json();
+          if (data.length === 0) {
+            toast({
+              title: t("weather.location_unavailable"),
+              description: t("weather.location_error"),
+              variant: "destructive",
+            });
+            return;
+          }
+          const loc = data[0];
+          handleSelectLocation(loc);
+          toggleSaved(loc);
+          toast({
+            title: t("weather.location_saved"),
+            description: t("weather.location_detected"),
+          });
+        } catch {
+          toast({
+            title: t("weather.location_unavailable"),
+            description: t("weather.location_error"),
+            variant: "destructive",
+          });
+        } finally {
+          setIsDetectingLocation(false);
+        }
+      },
+      (error) => {
+        setIsDetectingLocation(false);
+        let description = t("weather.location_error");
+        if (error.code === error.PERMISSION_DENIED) {
+          description = t("weather.location_permission_denied");
+        } else if (error.code === error.TIMEOUT) {
+          description = t("weather.location_timeout");
+        }
+        toast({
+          title: t("weather.location_unavailable"),
+          description,
+          variant: "destructive",
+        });
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+    );
+  }, [handleSelectLocation, toggleSaved, t, toast]);
 
   // Fetch AI alerts when weather data changes
   useEffect(() => {
@@ -334,6 +392,26 @@ export default function Weather() {
                 : <StarOff className="w-4 h-4" />}
             </Button>
           </div>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-1.5 w-full justify-start text-muted-foreground hover:text-primary px-0"
+            onClick={handleUseCurrentLocation}
+            disabled={isDetectingLocation}
+          >
+            {isDetectingLocation ? (
+              <>
+                <div className="w-3.5 h-3.5 rounded-full border-2 border-primary border-t-transparent animate-spin mr-2" />
+                {t("weather.use_current_location")}…
+              </>
+            ) : (
+              <>
+                <Locate className="w-3.5 h-3.5 mr-2" />
+                {t("weather.use_current_location")}
+              </>
+            )}
+          </Button>
 
           {showDropdown && searchResults.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-popover border border-border rounded-xl shadow-lg overflow-hidden">
@@ -459,28 +537,11 @@ export default function Weather() {
             {/* Weather Map */}
             <Card className="lg:col-span-3 overflow-hidden border-border shadow-sm">
               <CardContent className="p-0 h-full min-h-[290px] flex flex-col">
-                {/* Layer switcher */}
-                <div className="flex items-center gap-1 p-3 border-b border-border bg-card/80 backdrop-blur-sm">
-                  <span className="text-xs font-medium text-muted-foreground mr-2">Layer:</span>
-                  {MAP_LAYERS.map((layer) => (
-                    <button
-                      key={layer.key}
-                      onClick={() => setMapLayer(layer.key)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                        mapLayer === layer.key
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "bg-muted hover:bg-accent text-muted-foreground"
-                      }`}
-                    >
-                      {layer.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex-1 min-h-[250px]">
+                <div className="flex-1 min-h-[290px]">
                   <MapContainer
                     center={mapCenter}
                     zoom={7}
-                    style={{ height: "100%", width: "100%", minHeight: "250px" }}
+                    style={{ height: "100%", width: "100%", minHeight: "290px" }}
                     scrollWheelZoom={false}
                     attributionControl={false}
                   >
@@ -488,10 +549,6 @@ export default function Weather() {
                     <TileLayer
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                       attribution="&copy; OpenStreetMap"
-                    />
-                    <TileLayer
-                      url={`/api/weather/tiles/${mapLayer}/{z}/{x}/{y}.png`}
-                      opacity={0.55}
                     />
                     <Marker position={mapCenter}>
                       <Popup>{weather.locationName}</Popup>

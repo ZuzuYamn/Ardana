@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useDetectDisease } from '@workspace/api-client-react';
-import { Stethoscope, Camera, Upload, ImagePlus, AlertTriangle, CheckCircle2, ShieldCheck, Thermometer, Loader2, Pill, RefreshCw, AlertCircle } from 'lucide-react';
+import { Stethoscope, Camera, Upload, AlertTriangle, CheckCircle2, ShieldCheck, Thermometer, Loader2, Pill, RefreshCw, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -144,17 +144,14 @@ export default function DiseaseDetector() {
         />
 
         {selectedImage ? (
-          <div className="relative">
-            <img src={selectedImage} alt={t('disease.selected_alt')} className="w-full max-h-[480px] object-cover" />
-            {!isAnalyzing && (
-              <Button
-                variant="secondary"
-                className="absolute top-4 right-4 bg-black/50 text-white hover:bg-black/70 backdrop-blur-md gap-2"
-                onClick={(e) => { e.stopPropagation(); reset(); }}
-              >
-                <RefreshCw className="w-4 h-4" /> {t('disease.scan_another')}
-              </Button>
-            )}
+          <div className="p-6 sm:p-8 flex flex-col items-center">
+            <div className="relative w-full max-w-md mx-auto rounded-xl overflow-hidden bg-muted border border-border shadow-sm">
+              <img
+                src={selectedImage}
+                alt={t('disease.selected_alt')}
+                className="w-full h-full max-h-[320px] sm:max-h-[360px] object-contain"
+              />
+            </div>
           </div>
         ) : (
           <div className="p-10 text-center space-y-5">
@@ -185,6 +182,21 @@ export default function DiseaseDetector() {
           </div>
         )}
       </div>
+
+      {/* Action buttons when image is selected but not analyzing */}
+      {selectedImage && !isAnalyzing && !result && !error && (
+        <div className="flex flex-wrap gap-3 justify-center">
+          <Button variant="outline" onClick={reset} className="gap-2">
+            <RefreshCw className="w-4 h-4" /> {t('disease.scan_another')}
+          </Button>
+          <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="gap-2">
+            <Upload className="w-4 h-4" /> {t('disease.upload_gallery')}
+          </Button>
+          <Button onClick={() => cameraInputRef.current?.click()} className="gap-2 bg-destructive hover:bg-destructive/90">
+            <Camera className="w-4 h-4" /> {t('disease.take_photo')}
+          </Button>
+        </div>
+      )}
 
       {/* Loading */}
       <AnimatePresence>

@@ -6,11 +6,21 @@ import {
 } from "../../lib/gemini";
 import { IdentifyPlantBody, DetectDiseaseBody } from "@workspace/api-zod";
 import { requireAuth } from "../../middlewares/auth";
+import { geocodeLocation, fetchWeatherForecast } from "../../lib/weather";
 import { z } from "zod";
 
 const router: IRouter = Router();
 
 router.use(requireAuth);
+
+function deriveGrowthStage(ageYears: number | undefined): string {
+  if (ageYears === undefined || ageYears === null) return "unknown";
+  if (ageYears < 1) return "seedling/establishment (0-1 year)";
+  if (ageYears < 3) return "young/vegetative (1-3 years)";
+  if (ageYears < 5) return "maturing (3-5 years)";
+  if (ageYears < 20) return "mature (5-20 years)";
+  return "very established (20+ years)";
+}
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
 
@@ -31,8 +41,11 @@ Return a valid JSON object (no markdown, no code blocks) with these exact fields
   "soilType": "recommended soil type and pH",
   "suggestedWateringIntervalDays": number or null,
   "suggestedFertilizingIntervalDays": number or null,
+  "estimatedAgeYears": number or null,
   "error": null
 }
+
+estimatedAgeYears should be your best visual estimate of how many years the plant has been growing. For young seedlings set 0; for mature trees use whole years. If the age cannot be estimated from the image, set it to null.
 
 If you cannot identify the plant or if the image is not of a plant, set species/commonName to null and explain in description. Set error only if there is a technical problem with the image.`;
 
@@ -345,6 +358,156 @@ router.post("/ai/support", async (req, res) => {
     req.log.error({ err }, "Support AI failed");
     const { status, message: errMsg } = translateAiError(err, "Support AI");
     res.status(status).json({ error: errMsg });
+  }
+});
+
+// ─── Care schedule generator (location + weather + species + age) ───────────
+
+const CareScheduleBody = z.object({
+  species: z.string().optional(),
+  commonName: z.string().optional(),
+  estimatedAgeYears: z.coerce.number().min(0).optional(),
+  location: z.string().min(1, "Location is required"),
+  plantType: z.string().default("tree"),
+});
+
+const CARE_SCHEDULE_PROMPT = `You are an expert horticulturist and agronomist. Generate a personalized, evidence-based watering and fertilization schedule for a specific plant in its exact location and current weather context.
+
+Your job is to combine the plant's species, estimated age/growth stage, plant type, and local weather forecast into a practical care plan that respects the plant's real horticultural needs.
+
+Return a valid JSON object (no markdown, no code blocks) with exactly these fields:
+{
+  "wateringIntervalDays": number,
+  "fertilizingIntervalDays": number,
+  "wateringNotes": "short practical notes: watering technique, depth, seasonal adjustment, and weather-driven changes for this specific plant",
+  "fertilizingNotes": "short practical notes: fertilizer type/NPK, application timing, and species-specific guidance",
+  "explanation": "one concise sentence explaining why these intervals fit this plant, age, and current climate"
+}
+
+=== SPECIES-SPECIFIC GUIDANCE ===
+- Use the exact scientific or common name when known. Apply established horticultural rules for that plant (e.g., citrus prefer consistently moist but well-drained soil; succulents/cacti need infrequent deep watering; roses are heavy feeders; legumes need less nitrogen; acid-loving plants like blueberries need low-pH fertilizer).
+- If the species is unknown or uncertain, fall back to the plant type and general climate rules.
+- Do not recommend a generic 7-day / 60-day schedule unless the data truly supports it.
+
+=== GROWTH STAGE (from estimated age) ===
+Use the growth stage to decide watering depth and frequency, and fertilizing strength and timing:
+- 0–1 year (seedling/establishment): keep root zone evenly moist, never waterlogged. Use frequent light watering. Fertilize very lightly (half-strength balanced liquid) every 14–21 days only during active growth.
+- 1–3 years (young/vegetative): encourage root establishment. Water deeply 2–4 times per week in warm weather; less in cool weather. Fertilize every 28–42 days with balanced fertilizer during growing season.
+- 3–5 years (maturing): roots are deeper. Water deeply but less often. Fertilize every 45–60 days during growing season.
+- 5–20 years (mature): drought-tolerant; longer intervals. Fertilize 2–4 times per year (every 60–120 days) based on species needs.
+- 20+ years (very established): minimal intervention; focus on soil health, not heavy fertilizing. Water only during prolonged dry spells.
+
+=== WEATHER & CLIMATE ADAPTATION ===
+Use the current weather and 7-day forecast to adjust the base schedule:
+- Hot/dry/windy (daily highs >30°C, low humidity, UV >6, strong wind): increase watering frequency by 25–50%. Water early morning or late evening. Mention mulch if appropriate.
+- Heatwave (daily highs >35°C for 2+ days): reduce interval by up to 50% and recommend deep watering. Skip or halve fertilizer during heat stress.
+- Cool/humid/wet (daily highs <18°C, humidity >70%, rain): decrease watering frequency by 25–50%. Do not fertilize in cold, wet soil.
+- Rainfall: if total expected rainfall in the next 3 days is >10mm, reduce the watering interval by one step or skip the next watering. If >25mm, pause watering until soil drains.
+- Dormant / near-freezing conditions (daily highs <10°C or frost expected): reduce watering sharply and stop fertilizing.
+- Indoor/potted plants: treat container drying and leaching; water more frequently than field trees but avoid waterlogged pots. Fertilize more often because nutrients leach with each watering.
+- Field/ground trees: prefer deep, infrequent watering to encourage deep roots; fertilize by canopy radius.
+
+=== INTERVAL LIMITS ===
+- Watering interval: 1–14 days for seedlings/young plants; 3–21 days for established potted plants; 7–45 days for mature field trees. Use whole numbers only.
+- Fertilizing interval: 14–60 days for seedlings/young plants in active growth; 30–90 days for maturing plants; 60–180 days for mature trees. Skip fertilizing during dormancy or heat stress.
+- If the plant is clearly in active growth, lean toward the shorter end of the range. If dormant, stressed, or heat-stressed, lean toward the longer end or pause.
+- If you cannot make a confident recommendation, return wateringIntervalDays: 7 and fertilizingIntervalDays: 60 and explain the uncertainty in the notes.`;
+
+router.post("/ai/care-schedule", async (req, res): Promise<void> => {
+  const parsed = CareScheduleBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid request: " + parsed.error.issues[0]?.message });
+    return;
+  }
+
+  const { species, commonName, estimatedAgeYears, location, plantType } = parsed.data;
+
+  const growthStage = deriveGrowthStage(estimatedAgeYears);
+
+  try {
+    // Geocode the location and fetch a 7-day forecast for climate context
+    const geo = await geocodeLocation(location);
+    let weatherContext = "Weather data unavailable; use general climate knowledge for this location.";
+    let climateSummary = "";
+    if (geo) {
+      const forecast = await fetchWeatherForecast(geo.lat, geo.lon);
+      if (forecast) {
+        const avgMaxTemp = Math.round(
+          forecast.daily.reduce((sum, d) => sum + d.maxTemp, 0) / forecast.daily.length
+        );
+        const avgMinTemp = Math.round(
+          forecast.daily.reduce((sum, d) => sum + d.minTemp, 0) / forecast.daily.length
+        );
+        const avgHumidity = Math.round(
+          forecast.daily.reduce((sum, d) => sum + d.avgHumidity, 0) / forecast.daily.length
+        );
+        const totalRain = forecast.daily.reduce((sum, d) => sum + d.precipitation, 0);
+        const maxUv = forecast.daily.reduce((max, d) => Math.max(max, d.uvIndex), forecast.current.uvIndex);
+        const heatDays = forecast.daily.filter((d) => d.maxTemp > 30).length;
+        const heatwaveDays = forecast.daily.filter((d) => d.maxTemp > 35).length;
+        const coldDays = forecast.daily.filter((d) => d.maxTemp < 10).length;
+        const rainDays = forecast.daily.filter((d) => d.precipitation > 0.5).length;
+
+        climateSummary =
+          `Weekly climate summary: avg high ${avgMaxTemp}°C, avg low ${avgMinTemp}°C, avg humidity ${avgHumidity}%, ` +
+          `total rain ${totalRain.toFixed(1)}mm over ${rainDays} days, max UV ${maxUv}, ` +
+          `heat days (>30°C): ${heatDays}, heatwave days (>35°C): ${heatwaveDays}, cold days (<10°C): ${coldDays}.`;
+
+        const summary = forecast.daily
+          .map(
+            (d) =>
+              `${d.date}: ${d.weatherDescription}, ${d.minTemp}°C–${d.maxTemp}°C, ` +
+              `humidity ${d.avgHumidity}%, rain ${d.precipitation}mm, chance ${d.chanceOfRain}%`
+          )
+          .join("\n");
+        weatherContext =
+          `Location: ${forecast.locationName} (${forecast.lat}, ${forecast.lon}).\n` +
+          `Current: ${forecast.current.weatherDescription}, ${forecast.current.temperature}°C, ` +
+          `humidity ${forecast.current.humidity}%, precipitation ${forecast.current.precipitation}mm, UV ${forecast.current.uvIndex}.\n` +
+          `${climateSummary}\n` +
+          `7-day forecast:\n${summary}`;
+      }
+    }
+
+    const prompt = `${CARE_SCHEDULE_PROMPT}
+
+PLANT PROFILE:
+- Species: ${species ?? "unknown"}
+- Common name: ${commonName ?? "unknown"}
+- Plant type: ${plantType}
+- Estimated age: ${estimatedAgeYears ?? "unknown"} years
+- Growth stage: ${growthStage}
+- Location: ${location}
+
+${weatherContext}`;
+
+    const raw = await sendChatCompletion("care-schedule", [{ role: "user", content: prompt }]);
+    const jsonText = stripFences(raw);
+
+    let result: Record<string, unknown>;
+    try {
+      result = JSON.parse(jsonText);
+    } catch {
+      req.log.warn({ raw }, "Care schedule: failed to parse JSON from AI");
+      res.status(502).json({ error: "AI returned an unexpected format. Please try again." });
+      return;
+    }
+
+    // Sanitize interval values to positive integers
+    const wateringIntervalDays = Math.max(1, Math.round(Number(result.wateringIntervalDays) || 7));
+    const fertilizingIntervalDays = Math.max(1, Math.round(Number(result.fertilizingIntervalDays) || 60));
+
+    res.json({
+      wateringIntervalDays,
+      fertilizingIntervalDays,
+      wateringNotes: String(result.wateringNotes ?? ""),
+      fertilizingNotes: String(result.fertilizingNotes ?? ""),
+      explanation: String(result.explanation ?? ""),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Care schedule generation failed");
+    const { status, message } = translateAiError(err, "Care Schedule AI");
+    res.status(status).json({ error: message });
   }
 });
 

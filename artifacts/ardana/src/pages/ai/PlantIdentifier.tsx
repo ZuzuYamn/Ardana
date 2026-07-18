@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useIdentifyPlant } from '@workspace/api-client-react';
-import { Camera, Upload, ImagePlus, AlertCircle, Info, Leaf, Droplet, Sun, Sprout, Loader2, RefreshCw, X } from 'lucide-react';
+import { Camera, Upload, ImagePlus, AlertCircle, Info, Droplet, Sun, Sprout, Loader2, RefreshCw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -127,22 +127,19 @@ export default function PlantIdentifier() {
         />
 
         {selectedImage ? (
-          <div className="relative">
-            <img src={selectedImage} alt={t('plant_id.selected_alt')} className="w-full max-h-[480px] object-cover" />
-            {!isAnalyzing && (
-              <Button
-                variant="secondary"
-                className="absolute top-4 right-4 bg-black/50 text-white hover:bg-black/70 backdrop-blur-md gap-2"
-                onClick={(e) => { e.stopPropagation(); reset(); }}
-              >
-                <RefreshCw className="w-4 h-4" /> {t('plant_id.scan_another')}
-              </Button>
-            )}
+          <div className="p-6 sm:p-8 flex flex-col items-center">
+            <div className="relative w-full max-w-md mx-auto rounded-xl overflow-hidden bg-muted border border-border shadow-sm">
+              <img
+                src={selectedImage}
+                alt={t('plant_id.selected_alt')}
+                className="w-full h-full max-h-[320px] sm:max-h-[360px] object-contain"
+              />
+            </div>
           </div>
         ) : (
           <div className="p-10 text-center space-y-5">
-            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto">
-              <Leaf className="w-8 h-8 text-muted-foreground" />
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+              <Camera className="w-8 h-8 text-primary" />
             </div>
             <div>
               <p className="font-semibold text-foreground">{t('plant_id.drop_text')}</p>
@@ -171,7 +168,10 @@ export default function PlantIdentifier() {
 
       {/* Action buttons when image is selected but not analyzing */}
       {selectedImage && !isAnalyzing && !result && !error && (
-        <div className="flex gap-3 justify-center">
+        <div className="flex flex-wrap gap-3 justify-center">
+          <Button variant="outline" onClick={reset} className="gap-2">
+            <RefreshCw className="w-4 h-4" /> {t('plant_id.scan_another')}
+          </Button>
           <Button variant="outline" onClick={() => galleryInputRef.current?.click()} className="gap-2">
             <ImagePlus className="w-4 h-4" /> {t('plant_id.choose_different')}
           </Button>

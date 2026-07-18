@@ -63,6 +63,10 @@ function buildPool(): PoolEntry[] {
     { key: process.env.GEMINI_API_KEY_2, label: "gemini-agent-2" },
     { key: process.env.GEMINI_API_KEY_3, label: "gemini-agent-3" },
     { key: process.env.GEMINI_API_KEY_4, label: "gemini-agent-4" },
+    { key: process.env.GEMINI_API_KEY_5, label: "gemini-agent-5" },
+    { key: process.env.GEMINI_API_KEY_6, label: "gemini-agent-6" },
+    { key: process.env.GEMINI_API_KEY_7, label: "gemini-agent-7" },
+    { key: process.env.GEMINI_API_KEY_8, label: "gemini-agent-8" },
   ];
 
   const pool = candidates

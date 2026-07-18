@@ -3,6 +3,10 @@ import { z } from "zod";
 import { requireAuth } from "../../middlewares/auth";
 import { sendChatCompletion } from "../../lib/gemini";
 import { db, plantsTable, remindersTable } from "@workspace/db";
+import {
+  weatherAlertsCache,
+  buildCacheKey,
+} from "../../lib/aiCache";
 import { eq, and, gte } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -36,6 +40,36 @@ router.get("/weather/geocode", async (req, res): Promise<void> => {
     );
   } catch {
     res.json([]);
+  }
+});
+
+// ─── Reverse geocode (lat/lon → city) via WeatherAPI.com search.json ──────────
+router.get("/weather/reverse-geocode", async (req, res): Promise<void> => {
+  const lat = parseFloat(String(req.query.lat ?? ""));
+  const lon = parseFloat(String(req.query.lon ?? ""));
+  if (Number.isNaN(lat) || Number.isNaN(lon)) { res.status(400).json({ error: "lat and lon are required" }); return; }
+  if (!WEATHERAPI_KEY) { res.status(503).json({ error: "WEATHERAPI_KEY not configured" }); return; }
+  try {
+    const r = await fetch(
+      `http://api.weatherapi.com/v1/search.json?key=${WEATHERAPI_KEY}&q=${lat},${lon}`
+    );
+    if (!r.ok) { res.status(502).json({ error: "Geocoding service unavailable" }); return; }
+    const data = (await r.json()) as Array<{
+      name: string; region: string; country: string; lat: number; lon: number;
+    }>;
+    if (!data.length) { res.status(404).json({ error: "No location found" }); return; }
+    const loc = data[0];
+    res.json({
+      name: loc.name,
+      region: loc.region,
+      country: loc.country,
+      lat: loc.lat,
+      lon: loc.lon,
+      label: [loc.name, loc.region, loc.country].filter(Boolean).join(", "),
+    });
+  } catch (err) {
+    req.log.error({ err }, "Reverse geocode failed");
+    res.status(500).json({ error: "Could not resolve location" });
   }
 });
 
@@ -207,6 +241,23 @@ router.post("/weather/ai-alerts", async (req, res): Promise<void> => {
 
   if (!targets.length) { res.json({ alerts: [] }); return; }
 
+  // Stable cache key: user + weather context + selected plant snapshot.
+  const plantSnapshot = targets
+    .map((p) => `${p.id}:${p.healthStatus ?? ""}:${p.lastWateredDate ?? ""}:${p.lastFertilizedDate ?? ""}`)
+    .join("|");
+  const cacheKey = buildCacheKey([
+    userId,
+    parsed.data.weatherContext,
+    plantSnapshot,
+  ]);
+
+  const cached = weatherAlertsCache.get(cacheKey);
+  if (cached) {
+    req.log.debug({ userId }, "Serving AI weather alerts from cache");
+    res.json(cached);
+    return;
+  }
+
   const plantSummary = targets
     .map(
       (p) =>
@@ -253,7 +304,9 @@ Return ONLY the JSON array. No markdown. No extra text.`;
       .trim();
     let alerts: unknown[] = [];
     try { alerts = JSON.parse(raw); } catch { /* graceful */ }
-    res.json({ alerts });
+    const result = { alerts };
+    weatherAlertsCache.set(cacheKey, result);
+    res.json(result);
   } catch (err) {
     req.log.error({ err }, "AI weather alerts failed");
     res.json({ alerts: [] });
@@ -349,7 +402,23 @@ router.post("/weather/smart-alerts", async (req, res): Promise<void> => {
     })
     .join("\n\n");
 
-  // 4. Call AI
+  // 4. Check cache before calling AI
+  const cacheKey = buildCacheKey([
+    userId,
+    parsed.data.lat,
+    parsed.data.lon,
+    weatherContext,
+    plantContext,
+  ]);
+
+  const cached = weatherAlertsCache.get(cacheKey);
+  if (cached) {
+    req.log.debug({ userId }, "Serving smart alerts from cache");
+    res.json({ ...cached, locationName, weatherSummary: daily.slice(0, 3) });
+    return;
+  }
+
+  // 5. Call AI
   try {
     const prompt = `You are a smart plant care assistant. Analyze the weather forecast and the user's plant schedules to generate intelligent, weather-adjusted care recommendations.
 
@@ -388,7 +457,10 @@ Return ONLY a JSON array. No markdown, no code fences, no extra text.`;
     let alerts: unknown[] = [];
     try { alerts = JSON.parse(raw); } catch { /* return empty on parse error */ }
 
-    res.json({ alerts, locationName, weatherSummary: daily.slice(0, 3) });
+    const result = { alerts };
+    weatherAlertsCache.set(cacheKey, result);
+
+    res.json({ ...result, locationName, weatherSummary: daily.slice(0, 3) });
   } catch (err) {
     req.log.error({ err }, "Smart alerts AI failed");
     res.json({ alerts: [], locationName, weatherSummary: [] });

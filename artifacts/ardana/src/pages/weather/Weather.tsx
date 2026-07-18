@@ -14,7 +14,7 @@ import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIconUrl from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 import {
-  Cloud, CloudRain, Sun, Wind, Droplets, MapPin, Search, Locate,
+  Cloud, CloudRain, Sun, Wind, Droplets, MapPin, Search, Locate, RefreshCw,
   Thermometer, Eye, Gauge, Leaf, CloudSun, Star, StarOff,
   ChevronDown, ChevronUp, AlertTriangle, Info, Bell,
   Zap, Sprout, Scissors, FlaskConical, Wheat, Shield,
@@ -24,6 +24,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
+import {
+  getCache,
+  setCache,
+  removeCache,
+  buildWeatherFingerprint,
+  weatherChanged,
+  WEATHER_ALERTS_KEY,
+  WEATHER_ALERTS_TTL_MS,
+  type WeatherFingerprintData,
+} from "@/lib/aiCache";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -49,6 +59,8 @@ interface GeoLocation {
 type ChartMetric = "temperature" | "precipitation" | "humidity" | "windSpeed" | "uvIndex";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+const API_BASE = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
+
 function formatHour(timeStr: string) {
   const d = new Date(timeStr);
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -176,6 +188,7 @@ export default function Weather() {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [aiAlerts, setAiAlerts] = useState<WeatherAlert[]>([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
+  const [alertsCachedAt, setAlertsCachedAt] = useState<number | null>(null);
 
   // Weather data
   const { data: weather, isLoading } = useGetWeather({
@@ -299,24 +312,67 @@ export default function Weather() {
     );
   }, [handleSelectLocation, toggleSaved, t, toast]);
 
-  // Fetch AI alerts when weather data changes
+  // Load cached alerts immediately, then fetch only when weather changed or cache expired.
+  const loadAiAlerts = useCallback(
+    async (forceRefresh = false) => {
+      if (!weather) return;
+
+      const fingerprint = buildWeatherFingerprint(weather as WeatherFingerprintData);
+      const cached = getCache<{
+        fingerprint: string;
+        alerts: WeatherAlert[];
+        cachedAt: number;
+      }>(WEATHER_ALERTS_KEY);
+
+      const isCacheFresh =
+        cached &&
+        !forceRefresh &&
+        Date.now() - cached.cachedAt < WEATHER_ALERTS_TTL_MS &&
+        !weatherChanged(weather as WeatherFingerprintData, cached.fingerprint);
+
+      if (isCacheFresh) {
+        setAiAlerts(cached.alerts);
+        setAlertsCachedAt(cached.cachedAt);
+        setAlertsLoading(false);
+        return;
+      }
+
+      setAlertsLoading(true);
+      const weatherContext = buildWeatherContext(weather);
+      try {
+        const r = await fetch(`${API_BASE}/api/weather/ai-alerts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ weatherContext }),
+        });
+        const data = await r.json();
+        const alerts = (data.alerts ?? []) as WeatherAlert[];
+        setAiAlerts(alerts);
+        setAlertsCachedAt(Date.now());
+        setCache(
+          WEATHER_ALERTS_KEY,
+          { fingerprint, alerts, cachedAt: Date.now() },
+          WEATHER_ALERTS_TTL_MS,
+        );
+      } catch {
+        setAiAlerts([]);
+        setAlertsCachedAt(null);
+      } finally {
+        setAlertsLoading(false);
+      }
+    },
+    [weather],
+  );
+
+  const handleRefreshAlerts = useCallback(() => {
+    removeCache(WEATHER_ALERTS_KEY);
+    loadAiAlerts(true);
+  }, [loadAiAlerts]);
+
   useEffect(() => {
-    if (!weather) return;
-    let cancelled = false;
-    setAlertsLoading(true);
-    setAiAlerts([]);
-    const weatherContext = buildWeatherContext(weather);
-    fetch("/api/weather/ai-alerts", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ weatherContext }),
-    })
-      .then((r) => r.json())
-      .then((data) => { if (!cancelled) setAiAlerts(data.alerts ?? []); })
-      .catch(() => { if (!cancelled) setAiAlerts([]); })
-      .finally(() => { if (!cancelled) setAlertsLoading(false); });
-    return () => { cancelled = true; };
-  }, [weather?.locationName, weather?.current?.temperature]);
+    loadAiAlerts(false);
+  }, [weather?.locationName, weather?.current?.temperature, loadAiAlerts]);
 
   // Chart data for the 24h hourly
   const chartData = (weather?.hourly ?? []).map((h) => ({
@@ -356,7 +412,7 @@ export default function Weather() {
         </div>
 
         {/* Location search */}
-        <div ref={searchRef} className="relative">
+        <div ref={searchRef} className="relative z-[100]">
           <div className="flex gap-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -414,7 +470,7 @@ export default function Weather() {
           </Button>
 
           {showDropdown && searchResults.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-popover border border-border rounded-xl shadow-lg overflow-hidden">
+            <div className="absolute top-full left-0 right-0 mt-1 z-[200] bg-popover border border-border rounded-xl shadow-lg overflow-hidden max-h-[60vh] overflow-y-auto">
               {searchResults.map((loc, i) => (
                 <button
                   key={i}
@@ -422,7 +478,7 @@ export default function Weather() {
                   onClick={() => handleSelectLocation(loc)}
                 >
                   <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <span>{loc.label}</span>
+                  <span className="truncate">{loc.label}</span>
                 </button>
               ))}
             </div>
@@ -535,7 +591,7 @@ export default function Weather() {
             </Card>
 
             {/* Weather Map */}
-            <Card className="lg:col-span-3 overflow-hidden border-border shadow-sm">
+            <Card className="lg:col-span-3 overflow-hidden border-border shadow-sm isolate">
               <CardContent className="p-0 h-full min-h-[290px] flex flex-col">
                 <div className="flex-1 min-h-[290px]">
                   <MapContainer
@@ -810,12 +866,36 @@ export default function Weather() {
 
           {/* ── AI Smart Alerts ────────────────────────────────────────────── */}
           <div>
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-4 flex-wrap">
               <h3 className="font-serif font-bold text-2xl">AI Smart Alerts</h3>
               <Badge variant="secondary" className="gap-1">
                 <Sprout className="w-3 h-3" /> Plant-aware
               </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefreshAlerts}
+                disabled={alertsLoading}
+                className="ml-auto h-8 gap-1.5 text-xs"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${alertsLoading ? "animate-spin" : ""}`}
+                />
+                {alertsLoading
+                  ? t("weather.refreshing_alerts")
+                  : t("weather.refresh_alerts")}
+              </Button>
             </div>
+            {alertsCachedAt && !alertsLoading && (
+              <p className="text-xs text-muted-foreground mb-3">
+                {t("weather.alerts_cached_at", {
+                  time: new Date(alertsCachedAt).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                })}
+              </p>
+            )}
 
             {alertsLoading ? (
               <div className="space-y-3">

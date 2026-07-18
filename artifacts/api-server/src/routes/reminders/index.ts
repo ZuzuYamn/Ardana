@@ -140,6 +140,24 @@ router.patch("/reminders/:id", async (req, res): Promise<void> => {
     .where(eq(remindersTable.id, params.data.id))
     .returning();
 
+  // When a care reminder is completed, update the plant's last-* date so the
+  // Dashboard "Recently Watered" card and plant lists reflect the change immediately.
+  if (parsed.data.completed === true) {
+    const today = new Date().toISOString().split("T")[0];
+    const dateFieldByType: Record<string, string> = {
+      watering: "lastWateredDate",
+      fertilizing: "lastFertilizedDate",
+      pruning: "lastPrunedDate",
+    };
+    const dateField = dateFieldByType[reminder.type];
+    if (dateField) {
+      await db
+        .update(plantsTable)
+        .set({ [dateField]: today })
+        .where(eq(plantsTable.id, existing.plantId));
+    }
+  }
+
   res.json({ ...reminder, plantName: plant.name });
 });
 

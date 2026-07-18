@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useListReminders, useUpdateReminder, getListRemindersQueryKey, useListPlants, useCreateReminder } from '@workspace/api-client-react';
+import { useListReminders, useUpdateReminder, getListRemindersQueryKey, useListPlants, useCreateReminder, getGetPlantDashboardQueryKey, getListPlantsQueryKey } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Bell, CheckCircle2, Circle, Sprout, Droplets, Leaf, Calendar, Plus, Clock,
   CloudRain, Thermometer, Zap, Shield, Loader2, MapPin, Search, X,
   ChevronDown, ChevronUp, AlertTriangle, Info, FlaskConical, Wheat,
+  Crosshair,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -96,6 +97,8 @@ function alertIcon(type: string) {
 }
 
 function SmartAlertsPanel() {
+  const { t } = useLanguage();
+  const { toast } = useToast();
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -107,6 +110,7 @@ function SmartAlertsPanel() {
   const [isSearching, setIsSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
   const [data, setData] = useState<SmartAlertsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -169,7 +173,54 @@ function SmartAlertsPanel() {
     setShowSearch(false);
     setSuggestions([]);
     setQuery('');
+    toast({ title: t('reminders.location_set_to', { label: loc.label }) });
   }
+
+  const handleUseCurrentLocation = useCallback(async () => {
+    if (!navigator.geolocation) {
+      toast({
+        title: t('reminders.location_unavailable'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: false,
+          timeout: 15000,
+          maximumAge: 60_000,
+        });
+      });
+
+      const { latitude, longitude } = position.coords;
+      const res = await fetch(`/api/weather/reverse-geocode?lat=${latitude}&lon=${longitude}`, { credentials: 'include' });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(err.error ?? 'Could not resolve location');
+      }
+      const loc: SavedLocation = await res.json();
+      selectLocation(loc);
+    } catch (err) {
+      if (err instanceof GeolocationPositionError) {
+        if (err.code === err.PERMISSION_DENIED) {
+          toast({ title: t('reminders.location_permission_denied'), variant: 'destructive' });
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          toast({ title: t('reminders.location_unavailable'), variant: 'destructive' });
+        } else {
+          toast({ title: t('reminders.location_error', { message: err.message }), variant: 'destructive' });
+        }
+      } else if (err instanceof Error) {
+        toast({ title: t('reminders.location_error', { message: err.message }), variant: 'destructive' });
+      } else {
+        toast({ title: t('reminders.location_unavailable'), variant: 'destructive' });
+      }
+    } finally {
+      setIsDetectingLocation(false);
+    }
+  }, [t, toast]);
 
   return (
     <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
@@ -218,14 +269,14 @@ function SmartAlertsPanel() {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden border-b"
           >
-            <div className="p-4" ref={searchRef}>
+            <div className="p-4 space-y-3" ref={searchRef}>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   autoFocus
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search city or region…"
+                  placeholder={t('weather.search_placeholder')}
                   className="pl-9 pr-8"
                 />
                 {query && (
@@ -235,8 +286,24 @@ function SmartAlertsPanel() {
                   </button>
                 )}
               </div>
+
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-center gap-2"
+                disabled={isDetectingLocation}
+                onClick={handleUseCurrentLocation}
+              >
+                {isDetectingLocation ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Crosshair className="w-4 h-4" />
+                )}
+                {isDetectingLocation ? t('reminders.detecting_location') : t('reminders.use_current_location')}
+              </Button>
+
               {(suggestions.length > 0 || isSearching) && (
-                <div className="mt-2 rounded-xl border bg-popover shadow-md overflow-hidden">
+                <div className="rounded-xl border bg-popover shadow-md overflow-hidden">
                   {isSearching && <div className="px-4 py-3 text-sm text-muted-foreground flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Searching…</div>}
                   {suggestions.map((s, i) => (
                     <button key={i} onClick={() => selectLocation(s)}
@@ -269,9 +336,25 @@ function SmartAlertsPanel() {
                 <p className="text-sm text-muted-foreground max-w-xs">
                   Set your location to get weather-aware watering and care recommendations for your plants.
                 </p>
-                <Button size="sm" variant="outline" onClick={() => setShowSearch(true)} className="gap-2 mt-1">
-                  <Search className="w-3.5 h-3.5" /> Set location
-                </Button>
+                <div className="flex flex-col sm:flex-row items-center gap-2 mt-1 w-full sm:w-auto">
+                  <Button size="sm" variant="outline" onClick={() => setShowSearch(true)} className="gap-2 w-full sm:w-auto">
+                    <Search className="w-3.5 h-3.5" /> Set location
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="gap-2 w-full sm:w-auto"
+                    disabled={isDetectingLocation}
+                    onClick={handleUseCurrentLocation}
+                  >
+                    {isDetectingLocation ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Crosshair className="w-3.5 h-3.5" />
+                    )}
+                    {isDetectingLocation ? t('reminders.detecting_location') : t('reminders.use_current_location')}
+                  </Button>
+                </div>
               </div>
             ) : isLoading ? (
               <div className="p-5 space-y-3">
@@ -388,6 +471,8 @@ export default function Reminders() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListRemindersQueryKey({ completed: 'false' }) });
         queryClient.invalidateQueries({ queryKey: getListRemindersQueryKey({ completed: 'true' }) });
+        queryClient.invalidateQueries({ queryKey: getGetPlantDashboardQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListPlantsQueryKey() });
         if (!currentStatus) {
           toast({ title: t('reminders.task_completed'), description: t('reminders.good_job') });
         }

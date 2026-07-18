@@ -551,38 +551,40 @@ export default function Help() {
 
       {/* Quick links */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <button
-          onClick={handleGettingStarted}
-          className="text-left rounded-2xl border border-primary/20 bg-primary/5 hover:bg-primary/10 hover:border-primary/40 hover:shadow-md transition-all group"
-        >
-          <div className="p-6 text-center">
-            <Book className="w-8 h-8 text-primary mx-auto mb-3 group-hover:scale-110 transition-transform" />
-            <h3 className="font-bold mb-2">{t('help.getting_started')}</h3>
-            <p className="text-sm text-muted-foreground">{t('help.getting_started_desc')}</p>
-          </div>
-        </button>
-
-        <button
-          onClick={handleAITutorial}
-          className="text-left rounded-2xl border border-border bg-card shadow-sm hover:shadow-md hover:border-primary/30 transition-all group"
-        >
-          <div className="p-6 text-center">
-            <FileText className="w-8 h-8 text-secondary mx-auto mb-3 group-hover:scale-110 transition-transform" />
-            <h3 className="font-bold mb-2">{t('help.ai_tutorial')}</h3>
-            <p className="text-sm text-muted-foreground">{t('help.ai_tutorial_desc')}</p>
-          </div>
-        </button>
-
-        <button
-          onClick={handleContactSupport}
-          className="text-left rounded-2xl border border-border bg-card shadow-sm hover:shadow-md hover:border-primary/30 transition-all group"
-        >
-          <div className="p-6 text-center">
-            <MessageCircle className="w-8 h-8 text-accent-foreground mx-auto mb-3 group-hover:scale-110 transition-transform" />
-            <h3 className="font-bold mb-2">{t('help.contact_support')}</h3>
-            <p className="text-sm text-muted-foreground">{t('help.contact_support_desc')}</p>
-          </div>
-        </button>
+        {[
+          {
+            onClick: handleGettingStarted,
+            icon: Book,
+            title: t('help.getting_started'),
+            desc: t('help.getting_started_desc'),
+          },
+          {
+            onClick: handleAITutorial,
+            icon: FileText,
+            title: t('help.ai_tutorial'),
+            desc: t('help.ai_tutorial_desc'),
+          },
+          {
+            onClick: handleContactSupport,
+            icon: MessageCircle,
+            title: t('help.contact_support'),
+            desc: t('help.contact_support_desc'),
+          },
+        ].map(({ onClick, icon: Icon, title, desc }) => (
+          <button
+            key={title}
+            onClick={onClick}
+            className="text-left rounded-2xl border border-border bg-card shadow-sm hover:shadow-md hover:border-primary/30 transition-all group p-6"
+          >
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3 group-hover:bg-primary/20 transition-colors">
+                <Icon className="w-6 h-6 text-primary group-hover:scale-110 transition-transform" />
+              </div>
+              <h3 className="font-bold text-foreground mb-2">{title}</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
+            </div>
+          </button>
+        ))}
       </div>
 
       {/* Getting Started Guide */}

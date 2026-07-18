@@ -16,6 +16,13 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLanguage } from "@/lib/contexts/LanguageContext";
+import {
+  getCache,
+  setCache,
+  removeCache,
+  CHAT_SESSION_KEY,
+  CHAT_SESSION_TTL_MS,
+} from "@/lib/aiCache";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -350,7 +357,12 @@ export default function AiChat() {
     t("ai_chat.sugg_3"),
     t("ai_chat.sugg_4"),
   ];
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+
+  // Restore chat session from cache if it was active within the last 2 hours.
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    const cached = getCache<ChatMessage[]>(CHAT_SESSION_KEY);
+    return cached ?? [];
+  });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [pendingImage, setPendingImage] = useState<PendingImage | null>(null);
@@ -363,6 +375,17 @@ export default function AiChat() {
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Persist chat session on every change, but only keep clean (non-loading/error) turns.
+  // Touching the cache on every change also refreshes the 2-hour inactivity window.
+  useEffect(() => {
+    const persistable = messages.filter((m) => !m.isLoading && !m.error);
+    if (persistable.length > 0) {
+      setCache(CHAT_SESSION_KEY, persistable, CHAT_SESSION_TTL_MS);
+    } else {
+      removeCache(CHAT_SESSION_KEY);
+    }
   }, [messages]);
 
   // Auto-resize textarea
@@ -547,6 +570,7 @@ export default function AiChat() {
     setMessages([]);
     setPendingImage(null);
     setInput("");
+    removeCache(CHAT_SESSION_KEY);
   };
 
   const isEmpty = messages.length === 0;

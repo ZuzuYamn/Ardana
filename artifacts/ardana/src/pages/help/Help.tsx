@@ -377,30 +377,32 @@ function GettingStartedGuide({ open, onToggle }: { open: boolean; onToggle: () =
 
 // ─── AI Tutorial Section ──────────────────────────────────────────────────────
 
-const AI_TUTORIAL_STEPS = [
+const AI_TUTORIAL_STEPS = (t: (key: string) => string) => [
   {
     icon: Leaf,
-    title: 'Plant Identification',
-    desc: 'Upload a photo of any plant — the AI instantly identifies the species, common name, and care family.',
+    title: t('help.tutorial_identification'),
+    desc: t('help.tutorial_identification_desc'),
   },
   {
     icon: BrainCircuit,
-    title: 'Disease Detection',
-    desc: 'The same photo scan checks for visible diseases, pests, or deficiencies and explains what it found.',
+    title: t('help.tutorial_disease'),
+    desc: t('help.tutorial_disease_desc'),
   },
   {
     icon: MessageCircle,
-    title: 'AI Chat Assistant',
-    desc: 'Ask follow-up questions about watering, sunlight, soil, or anything plant-related in the Contact Support chat.',
+    title: t('help.tutorial_chat'),
+    desc: t('help.tutorial_chat_desc'),
   },
   {
     icon: Sparkles,
-    title: 'Smart Reminders',
-    desc: 'After saving a plant the AI suggests a watering and fertilising schedule tailored to that species.',
+    title: t('help.tutorial_reminders'),
+    desc: t('help.tutorial_reminders_desc'),
   },
 ];
 
 function AITutorialSection({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const { t } = useLanguage();
+  const steps = AI_TUTORIAL_STEPS(t);
   return (
     <div className="space-y-4">
       <button
@@ -411,8 +413,8 @@ function AITutorialSection({ open, onToggle }: { open: boolean; onToggle: () => 
           <FileText className="w-5 h-5 text-secondary-foreground" />
         </div>
         <div className="flex-1">
-          <h2 className="text-xl font-serif font-bold">AI Tools Tutorial</h2>
-          <p className="text-sm text-muted-foreground">Learn how the AI features work together</p>
+          <h2 className="text-xl font-serif font-bold">{t('help.ai_tutorial')}</h2>
+          <p className="text-sm text-muted-foreground">{t('help.ai_tutorial_desc')}</p>
         </div>
         <div className="text-muted-foreground group-hover:text-foreground transition-colors">
           {open ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
@@ -430,7 +432,7 @@ function AITutorialSection({ open, onToggle }: { open: boolean; onToggle: () => 
             className="overflow-hidden"
           >
             <div className="bg-card border border-border rounded-2xl divide-y divide-border overflow-hidden">
-              {AI_TUTORIAL_STEPS.map(({ icon: Icon, title, desc }, index) => (
+              {steps.map(({ icon: Icon, title, desc }, index) => (
                 <motion.div
                   key={title}
                   initial={{ opacity: 0, x: -8 }}

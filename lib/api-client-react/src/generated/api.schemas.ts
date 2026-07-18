@@ -40,6 +40,8 @@ export interface Plant {
   wateringIntervalDays?: number | null;
   /** @nullable */
   fertilizingIntervalDays?: number | null;
+  /** @nullable */
+  pruningIntervalDays?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -82,6 +84,8 @@ export interface PlantDetail {
   wateringIntervalDays?: number | null;
   /** @nullable */
   fertilizingIntervalDays?: number | null;
+  /** @nullable */
+  pruningIntervalDays?: number | null;
   createdAt: string;
   updatedAt: string;
   reminders: Reminder[];
@@ -99,6 +103,7 @@ export interface PlantInput {
   healthStatus?: string;
   wateringIntervalDays?: number;
   fertilizingIntervalDays?: number;
+  pruningIntervalDays?: number;
 }
 
 export interface PlantUpdate {
@@ -116,6 +121,7 @@ export interface PlantUpdate {
   healthStatus?: string;
   wateringIntervalDays?: number;
   fertilizingIntervalDays?: number;
+  pruningIntervalDays?: number;
 }
 
 export interface ReminderInput {

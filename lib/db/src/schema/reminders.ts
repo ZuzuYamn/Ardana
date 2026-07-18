@@ -9,6 +9,7 @@ export const remindersTable = pgTable("reminders", {
   type: text("type").notNull().default("watering"), // watering | fertilizing | pruning | spraying | harvesting | other
   scheduledDate: date("scheduled_date", { mode: "string" }).notNull(),
   completed: boolean("completed").notNull().default(false),
+  generatedFromReminderId: integer("generated_from_reminder_id"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

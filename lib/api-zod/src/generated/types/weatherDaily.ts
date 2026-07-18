@@ -5,22 +5,14 @@
  * Ardana Smart Plant Care and Farm Management API
  * OpenAPI spec version: 0.1.0
  */
-import type { WeatherHourly } from './weatherHourly';
 
 export interface WeatherDaily {
   date: string;
   maxTemp: number;
   minTemp: number;
-  avgHumidity: number;
   precipitation: number;
-  chanceOfRain: number;
-  maxWindSpeed: number;
   weatherCode: number;
   weatherDescription: string;
-  weatherIcon: string;
   sunrise: string;
   sunset: string;
-  moonPhase: string;
-  uvIndex: number;
-  hourly: WeatherHourly[];
 }

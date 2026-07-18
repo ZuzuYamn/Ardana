@@ -1,10 +1,12 @@
 import React from "react";
+import { useLanguage } from "@/lib/contexts/LanguageContext";
 
 interface AuthLayoutProps {
   children: React.ReactNode;
 }
 
 export function AuthLayout({ children }: AuthLayoutProps) {
+  const { t } = useLanguage();
   return (
     <div className="relative min-h-[100dvh] overflow-hidden flex items-center justify-center p-4 sm:p-8">
 
@@ -137,13 +139,13 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           {/* Thermometer */}
           <circle cx="26" cy="31" r="11" fill="#c4623a" fillOpacity="0.9" />
           <rect x="23" y="10" width="6" height="22" rx="3" fill="#c4623a" fillOpacity="0.9" />
-          <text x="46" y="24" fontFamily="sans-serif" fontSize="10" fill="white" fillOpacity="0.85" fontWeight="600">24°C</text>
-          <text x="46" y="38" fontFamily="sans-serif" fontSize="8.5" fill="white" fillOpacity="0.6">Optimal for watering</text>
+          <text x="46" y="24" fontFamily="sans-serif" fontSize="10" fill="white" fillOpacity="0.85" fontWeight="600">{t('brand.auth_temp')}</text>
+          <text x="46" y="38" fontFamily="sans-serif" fontSize="8.5" fill="white" fillOpacity="0.6">{t('brand.auth_watering')}</text>
           {/* Rain drops */}
           {[0,1,2].map(i => (
             <ellipse key={i} cx={46 + i * 12} cy={50} rx="3" ry="5" fill="#80b8e0" fillOpacity="0.7" />
           ))}
-          <text x="86" y="54" fontFamily="sans-serif" fontSize="8" fill="white" fillOpacity="0.55">72% humidity</text>
+          <text x="86" y="54" fontFamily="sans-serif" fontSize="8" fill="white" fillOpacity="0.55">{t('brand.auth_humidity')}</text>
         </g>
 
         {/* ── Far hills ───────────────────────────────────────────────── */}
@@ -344,8 +346,8 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           {/* Leaf icon */}
           <path d="M22 34 C22 20, 36 18, 40 28 C42 34, 36 42, 22 34 Z" fill="#7acc40" fillOpacity="0.9" />
           <path d="M22 34 C28 30, 36 26, 40 28" stroke="#5aaa28" strokeWidth="1.2" fill="none" />
-          <text x="50" y="28" fontFamily="sans-serif" fontSize="10" fill="white" fillOpacity="0.88" fontWeight="600">AI Scan</text>
-          <text x="50" y="42" fontFamily="sans-serif" fontSize="8.5" fill="white" fillOpacity="0.6">12 plants monitored</text>
+          <text x="50" y="28" fontFamily="sans-serif" fontSize="10" fill="white" fillOpacity="0.88" fontWeight="600">{t('brand.ai_scan')}</text>
+          <text x="50" y="42" fontFamily="sans-serif" fontSize="8.5" fill="white" fillOpacity="0.6">{t('brand.ai_scan_desc')}</text>
           {/* Health bar */}
           <rect x="50" y="50" width="90" height="7" rx="3.5" fill="white" fillOpacity="0.15" />
           <rect x="50" y="50" width="72" height="7" rx="3.5" fill="#7acc40" fillOpacity="0.7" />

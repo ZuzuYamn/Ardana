@@ -21,4 +21,5 @@ export interface PlantUpdate {
   healthStatus?: string;
   wateringIntervalDays?: number;
   fertilizingIntervalDays?: number;
+  pruningIntervalDays?: number;
 }

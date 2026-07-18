@@ -81,12 +81,12 @@ export default function PlantList() {
         >
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <p className="text-sm font-medium flex-1">
-            Showing plants with <strong>poor</strong> or <strong>moderate</strong> health that need your attention.
+            {t('plant_list.attention_banner')}
           </p>
           <button
             onClick={clearFilters}
             className="text-destructive/60 hover:text-destructive transition-colors"
-            aria-label="Clear attention filter"
+            aria-label={t('plant_list.clear_attention_aria')}
           >
             <X className="w-4 h-4" />
           </button>
@@ -232,7 +232,7 @@ export default function PlantList() {
                     className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-primary transition-colors"
                   >
                     <Pencil className="w-3 h-3" />
-                    Edit plant
+                    {t('plant_list.edit_plant')}
                   </Link>
                 </div>
               </div>
@@ -247,11 +247,11 @@ export default function PlantList() {
               : <Sprout className="w-10 h-10 text-muted-foreground" />}
           </div>
           <h2 className="font-serif text-2xl font-bold mb-2">
-            {healthStatus === 'attention' ? 'All plants are healthy!' : t('plants.none_found')}
+            {healthStatus === 'attention' ? t('plant_list.all_healthy') : t('plants.none_found')}
           </h2>
           <p className="text-muted-foreground max-w-md mx-auto mb-8">
             {healthStatus === 'attention'
-              ? 'No plants with poor or moderate health were found. Your farm is in great shape.'
+              ? t('plant_list.attention_empty')
               : isFiltered
               ? t('plants.none_filter')
               : t('plants.none_empty')}

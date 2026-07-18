@@ -61,8 +61,8 @@ export function Sidebar() {
         <Link href="/" className="flex items-center gap-3">
           <ArdanaLogo size={42} variant="dark" />
           <div>
-            <h1 className="font-serif text-2xl font-bold text-sidebar-foreground tracking-tight">Ardana</h1>
-            <p className="text-xs text-sidebar-foreground/60 font-medium">Our Land. Our Life.</p>
+            <h1 className="font-serif text-2xl font-bold text-sidebar-foreground tracking-tight">{t('brand.name')}</h1>
+            <p className="text-xs text-sidebar-foreground/60 font-medium">{t('sidebar.tagline')}</p>
           </div>
         </Link>
       </div>
@@ -79,7 +79,7 @@ export function Sidebar() {
 
         <div>
           <p className="px-4 mb-2 text-[11px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
-            AI Tools
+            {t('sidebar.ai_tools_label')}
           </p>
           <ul className="space-y-1">
             {aiItems.map((item) => (
@@ -115,7 +115,7 @@ export function Sidebar() {
           className="w-full justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
         >
           <LogOut className="w-4 h-4" />
-          Sign out
+                {t('sidebar.sign_out')}
         </Button>
       </div>
     </aside>

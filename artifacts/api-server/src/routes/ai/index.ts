@@ -41,6 +41,7 @@ Return a valid JSON object (no markdown, no code blocks) with these exact fields
   "soilType": "recommended soil type and pH",
   "suggestedWateringIntervalDays": number or null,
   "suggestedFertilizingIntervalDays": number or null,
+  "suggestedPruningIntervalDays": number or null,
   "estimatedAgeYears": number or null,
   "error": null
 }
@@ -379,8 +380,10 @@ Return a valid JSON object (no markdown, no code blocks) with exactly these fiel
 {
   "wateringIntervalDays": number,
   "fertilizingIntervalDays": number,
+  "pruningIntervalDays": number or null,
   "wateringNotes": "short practical notes: watering technique, depth, seasonal adjustment, and weather-driven changes for this specific plant",
   "fertilizingNotes": "short practical notes: fertilizer type/NPK, application timing, and species-specific guidance",
+  "pruningNotes": "short practical notes: what to prune, when, and how often for this plant",
   "explanation": "one concise sentence explaining why these intervals fit this plant, age, and current climate"
 }
 
@@ -411,7 +414,7 @@ Use the current weather and 7-day forecast to adjust the base schedule:
 - Watering interval: 1–14 days for seedlings/young plants; 3–21 days for established potted plants; 7–45 days for mature field trees. Use whole numbers only.
 - Fertilizing interval: 14–60 days for seedlings/young plants in active growth; 30–90 days for maturing plants; 60–180 days for mature trees. Skip fertilizing during dormancy or heat stress.
 - If the plant is clearly in active growth, lean toward the shorter end of the range. If dormant, stressed, or heat-stressed, lean toward the longer end or pause.
-- If you cannot make a confident recommendation, return wateringIntervalDays: 7 and fertilizingIntervalDays: 60 and explain the uncertainty in the notes.`;
+- If you cannot make a confident recommendation, return wateringIntervalDays: 7 and fertilizingIntervalDays: 60 and pruningIntervalDays: null and explain the uncertainty in the notes.`;
 
 router.post("/ai/care-schedule", async (req, res): Promise<void> => {
   const parsed = CareScheduleBody.safeParse(req.body);
@@ -493,15 +496,19 @@ ${weatherContext}`;
       return;
     }
 
-    // Sanitize interval values to positive integers
+    // Sanitize interval values to positive integers; pruning is optional.
     const wateringIntervalDays = Math.max(1, Math.round(Number(result.wateringIntervalDays) || 7));
     const fertilizingIntervalDays = Math.max(1, Math.round(Number(result.fertilizingIntervalDays) || 60));
+    const rawPruning = Number(result.pruningIntervalDays);
+    const pruningIntervalDays = Number.isFinite(rawPruning) && rawPruning > 0 ? Math.max(1, Math.round(rawPruning)) : null;
 
     res.json({
       wateringIntervalDays,
       fertilizingIntervalDays,
+      pruningIntervalDays,
       wateringNotes: String(result.wateringNotes ?? ""),
       fertilizingNotes: String(result.fertilizingNotes ?? ""),
+      pruningNotes: String(result.pruningNotes ?? ""),
       explanation: String(result.explanation ?? ""),
     });
   } catch (err) {

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db, remindersTable, plantsTable } from "@workspace/db";
 import {
   CreateReminderBody,
@@ -134,28 +134,102 @@ router.patch("/reminders/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  // Fetch the existing reminder before mutating so we can compare its previous state
+  // and enforce completion rules (only reminders due today can be completed).
+  const [existingReminder] = await db
+    .select()
+    .from(remindersTable)
+    .where(eq(remindersTable.id, params.data.id));
+
+  if (!existingReminder) {
+    res.status(404).json({ error: "Reminder not found" });
+    return;
+  }
+
+  const today = new Date().toISOString().split("T")[0];
+
+  // Only allow completing reminders that are scheduled for today.
+  if (parsed.data.completed === true && existingReminder.scheduledDate !== today) {
+    res.status(400).json({ error: "You can only complete reminders scheduled for today" });
+    return;
+  }
+
   const [reminder] = await db
     .update(remindersTable)
     .set(parsed.data)
     .where(eq(remindersTable.id, params.data.id))
     .returning();
 
-  // When a care reminder is completed, update the plant's last-* date so the
-  // Dashboard "Recently Watered" card and plant lists reflect the change immediately.
-  if (parsed.data.completed === true) {
-    const today = new Date().toISOString().split("T")[0];
-    const dateFieldByType: Record<string, string> = {
-      watering: "lastWateredDate",
-      fertilizing: "lastFertilizedDate",
-      pruning: "lastPrunedDate",
-    };
-    const dateField = dateFieldByType[reminder.type];
-    if (dateField) {
-      await db
-        .update(plantsTable)
-        .set({ [dateField]: today })
-        .where(eq(plantsTable.id, existing.plantId));
+  // Map recurring care types to the plant's interval and last-care date fields.
+  const careTypeConfig: Record<string, { intervalField: string; dateField: string; defaultInterval: number }> = {
+    watering: { intervalField: "wateringIntervalDays", dateField: "lastWateredDate", defaultInterval: 3 },
+    fertilizing: { intervalField: "fertilizingIntervalDays", dateField: "lastFertilizedDate", defaultInterval: 20 },
+    pruning: { intervalField: "pruningIntervalDays", dateField: "lastPrunedDate", defaultInterval: 180 },
+  };
+  const careConfig = careTypeConfig[reminder.type];
+
+  // When a care reminder's completion status changes, update the plant's last-* date
+  // so the Dashboard "Recently Watered" card and plant lists reflect the change immediately —
+  // including when a user undoes a completed watering task.
+  if (careConfig && parsed.data.completed === true) {
+    await db
+      .update(plantsTable)
+      .set({ [careConfig.dateField]: today })
+      .where(eq(plantsTable.id, existing.plantId));
+
+    // Generate the next recurring reminder based on the plant's care schedule.
+    // Only create one if the plant has a positive interval for this care type.
+    const interval = (plant[careConfig.intervalField as keyof typeof plant] as number | null | undefined) ?? careConfig.defaultInterval;
+    if (interval > 0) {
+      const nextDate = new Date(Date.now() + interval * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+      const existingGenerated = await db
+        .select({ id: remindersTable.id })
+        .from(remindersTable)
+        .where(
+          and(
+            eq(remindersTable.plantId, existing.plantId),
+            eq(remindersTable.type, reminder.type),
+            eq(remindersTable.generatedFromReminderId, reminder.id)
+          )
+        )
+        .limit(1);
+
+      if (existingGenerated.length === 0) {
+        await db.insert(remindersTable).values({
+          plantId: existing.plantId,
+          type: reminder.type,
+          scheduledDate: nextDate,
+          completed: false,
+          generatedFromReminderId: reminder.id,
+          notes: `Auto-scheduled: next ${reminder.type} in ${interval} day${interval === 1 ? "" : "s"}`,
+        });
+      }
     }
+  } else if (careConfig && parsed.data.completed === false) {
+    // Undo: remove the future reminder that was generated from this completion, then
+    // recalculate the plant's last care date from any remaining completed reminders.
+    await db
+      .delete(remindersTable)
+      .where(eq(remindersTable.generatedFromReminderId, reminder.id));
+
+    const completedSameType = await db
+      .select({ scheduledDate: remindersTable.scheduledDate })
+      .from(remindersTable)
+      .where(
+        and(
+          eq(remindersTable.plantId, existing.plantId),
+          eq(remindersTable.type, reminder.type),
+          eq(remindersTable.completed, true)
+        )
+      )
+      .orderBy(sql`${remindersTable.scheduledDate} DESC`)
+      .limit(1);
+
+    const newDate = completedSameType[0]?.scheduledDate ?? null;
+    await db
+      .update(plantsTable)
+      .set({ [careConfig.dateField]: newDate })
+      .where(eq(plantsTable.id, existing.plantId));
   }
 
   res.json({ ...reminder, plantName: plant.name });

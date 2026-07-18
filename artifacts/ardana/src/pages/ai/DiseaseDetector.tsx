@@ -25,7 +25,7 @@ async function compressImage(file: File, maxPx = 1024): Promise<{ base64: string
       const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
       resolve({ base64: dataUrl.split(',')[1], mimeType: 'image/jpeg', previewUrl: dataUrl });
     };
-    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Failed to load image')); };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('disease.image_load_failed')); };
     img.src = objectUrl;
   });
 }

@@ -9,14 +9,7 @@
 export interface WeatherHourly {
   time: string;
   temperature: number;
-  feelsLike: number;
   precipitation: number;
-  chanceOfRain: number;
   weatherCode: number;
-  weatherDescription: string;
   humidity: number;
-  windSpeed: number;
-  windDir: string;
-  uvIndex: number;
-  cloudCover: number;
 }

@@ -32,6 +32,7 @@ const CreatePlantWithAnalysisBody = z.object({
   healthStatus: z.string().default("unknown"),
   wateringIntervalDays: z.coerce.number().int().positive().optional(),
   fertilizingIntervalDays: z.coerce.number().int().positive().optional(),
+  pruningIntervalDays: z.coerce.number().int().positive().optional(),
   photoDataUrl: z.string().optional(),     // base64 data URL of the plant image
   imageBase64: z.string().optional(),      // raw base64 (used for AI if not already analyzed)
   mimeType: z.string().optional(),
@@ -42,13 +43,20 @@ const CreatePlantWithAnalysisBody = z.object({
 // Default care intervals applied when the user doesn't specify a schedule
 const DEFAULT_WATERING_INTERVAL_DAYS = 3;
 const DEFAULT_FERTILIZING_INTERVAL_DAYS = 20;
+const DEFAULT_PRUNING_INTERVAL_DAYS = 180;
 
 // Helper: generate reminders after plant creation
 // Always creates reminders — uses defaults when intervals are not provided.
-async function autoGenerateReminders(plantId: number, wateringIntervalDays?: number, fertilizingIntervalDays?: number) {
+async function autoGenerateReminders(
+  plantId: number,
+  wateringIntervalDays?: number,
+  fertilizingIntervalDays?: number,
+  pruningIntervalDays?: number
+) {
   const today = new Date().toISOString().split("T")[0];
   const effectiveWatering = wateringIntervalDays ?? DEFAULT_WATERING_INTERVAL_DAYS;
   const effectiveFertilizing = fertilizingIntervalDays ?? DEFAULT_FERTILIZING_INTERVAL_DAYS;
+  const effectivePruning = pruningIntervalDays ?? DEFAULT_PRUNING_INTERVAL_DAYS;
 
   const remindersToCreate: Array<{ plantId: number; type: string; scheduledDate: string; notes: string }> = [
     {
@@ -64,6 +72,15 @@ async function autoGenerateReminders(plantId: number, wateringIntervalDays?: num
       notes: `Auto-scheduled: fertilize every ${effectiveFertilizing} day${effectiveFertilizing === 1 ? "" : "s"}.${fertilizingIntervalDays ? "" : " (default schedule)"}`,
     },
   ];
+
+  if (pruningIntervalDays !== undefined && pruningIntervalDays > 0) {
+    remindersToCreate.push({
+      plantId,
+      type: "pruning",
+      scheduledDate: new Date(Date.now() + effectivePruning * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      notes: `Auto-scheduled: prune every ${effectivePruning} day${effectivePruning === 1 ? "" : "s"}.${pruningIntervalDays ? "" : " (default schedule)"}`,
+    });
+  }
 
   await db.insert(remindersTable).values(remindersToCreate);
   return remindersToCreate.length;
@@ -189,6 +206,7 @@ Return a valid JSON object (no markdown, no code blocks) with these exact fields
   // Apply defaults so the stored intervals always reflect the active schedule
   const effectiveWateringInterval = wateringIntervalDays ?? DEFAULT_WATERING_INTERVAL_DAYS;
   const effectiveFertilizingInterval = fertilizingIntervalDays ?? DEFAULT_FERTILIZING_INTERVAL_DAYS;
+  const effectivePruningInterval = pruningIntervalDays ?? DEFAULT_PRUNING_INTERVAL_DAYS;
 
   const [plant] = await db
     .insert(plantsTable)
@@ -203,6 +221,7 @@ Return a valid JSON object (no markdown, no code blocks) with these exact fields
       healthStatus: finalHealthStatus,
       wateringIntervalDays: effectiveWateringInterval,
       fertilizingIntervalDays: effectiveFertilizingInterval,
+      pruningIntervalDays: effectivePruningInterval,
       photoUrl,
       aiIdentification,
       aiDiseaseDetection,
@@ -210,7 +229,7 @@ Return a valid JSON object (no markdown, no code blocks) with these exact fields
     .returning();
 
   // Auto-generate reminders based on care schedule
-  const remindersCreated = await autoGenerateReminders(plant.id, effectiveWateringInterval, effectiveFertilizingInterval);
+  const remindersCreated = await autoGenerateReminders(plant.id, effectiveWateringInterval, effectiveFertilizingInterval, effectivePruningInterval);
 
   res.status(201).json({ ...plant, remindersCreated });
 });
@@ -271,15 +290,17 @@ router.post("/plants", async (req, res): Promise<void> => {
 
   const effectiveWateringInterval = parsed.data.wateringIntervalDays ?? DEFAULT_WATERING_INTERVAL_DAYS;
   const effectiveFertilizingInterval = parsed.data.fertilizingIntervalDays ?? DEFAULT_FERTILIZING_INTERVAL_DAYS;
+  const effectivePruningInterval = parsed.data.pruningIntervalDays ?? DEFAULT_PRUNING_INTERVAL_DAYS;
 
   const [plant] = await db.insert(plantsTable).values({
     ...parsed.data,
     userId,
     wateringIntervalDays: effectiveWateringInterval,
     fertilizingIntervalDays: effectiveFertilizingInterval,
+    pruningIntervalDays: effectivePruningInterval,
   }).returning();
 
-  await autoGenerateReminders(plant.id, effectiveWateringInterval, effectiveFertilizingInterval);
+  await autoGenerateReminders(plant.id, effectiveWateringInterval, effectiveFertilizingInterval, effectivePruningInterval);
 
   res.status(201).json(plant);
 });
@@ -325,6 +346,7 @@ const UpdatePlantWithAnalysisBody = z.object({
   healthStatus: z.string().optional(),
   wateringIntervalDays: z.coerce.number().int().positive().nullish(),
   fertilizingIntervalDays: z.coerce.number().int().positive().nullish(),
+  pruningIntervalDays: z.coerce.number().int().positive().nullish(),
   photoDataUrl: z.string().nullish(),
   aiIdentification: z.string().nullish(),
   aiDiseaseDetection: z.string().nullish(),

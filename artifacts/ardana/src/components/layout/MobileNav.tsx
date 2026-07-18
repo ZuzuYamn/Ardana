@@ -46,7 +46,7 @@ export function MobileNav() {
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-background/80 backdrop-blur-md border-b z-40 flex items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2.5">
           <ArdanaLogo size={34} variant="dark" />
-          <h1 className="font-serif text-xl font-bold tracking-tight">Ardana</h1>
+          <h1 className="font-serif text-xl font-bold tracking-tight">{t('brand.name')}</h1>
         </Link>
 
         <Sheet>
@@ -63,7 +63,7 @@ export function MobileNav() {
                   <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                     <Leaf className="w-5 h-5 text-primary-foreground" />
                   </div>
-                  <span className="font-serif text-2xl">Ardana</span>
+                  <span className="font-serif text-2xl">{t('brand.name')}</span>
                 </SheetTitle>
               </SheetHeader>
               {user && (
@@ -109,7 +109,7 @@ export function MobileNav() {
                 onClick={logout}
               >
                 <LogOut className="w-4 h-4" />
-                Sign out
+                {t('sidebar.sign_out')}
               </Button>
             </div>
           </SheetContent>

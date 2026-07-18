@@ -76,7 +76,7 @@ async function compressImage(
     };
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
-      reject(new Error("Failed to load image"));
+      reject(new Error("ai_chat.image_load_failed"));
     };
     img.src = objectUrl;
   });

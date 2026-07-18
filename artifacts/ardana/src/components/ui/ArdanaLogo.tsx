@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 interface ArdanaLogoProps {
   /** Size of the square logo mark in pixels */
@@ -22,6 +23,7 @@ export function ArdanaLogo({
   showWordmark = false,
   variant = 'dark',
 }: ArdanaLogoProps) {
+  const { t } = useLanguage();
   const bg =
     variant === 'dark'
       ? '#2B4A2F'
@@ -42,7 +44,7 @@ export function ArdanaLogo({
         viewBox="0 0 40 40"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        aria-label="Ardana logo"
+        aria-label={t('brand.logo_aria')}
       >
         {/* Background tile */}
         {variant !== 'transparent' && (

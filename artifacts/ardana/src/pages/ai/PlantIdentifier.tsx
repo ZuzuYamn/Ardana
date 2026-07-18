@@ -25,7 +25,7 @@ async function compressImage(file: File, maxPx = 1024): Promise<{ base64: string
       const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
       resolve({ base64: dataUrl.split(',')[1], mimeType: 'image/jpeg', previewUrl: dataUrl });
     };
-    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('Failed to load image')); };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error('plant_id.image_load_failed')); };
     img.src = objectUrl;
   });
 }
@@ -55,7 +55,7 @@ export default function PlantIdentifier() {
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedImage, setSelectedImage] = useState<{ previewUrl: string; base64: string; mimeType: string } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   const reset = () => {
@@ -70,7 +70,7 @@ export default function PlantIdentifier() {
     }
     try {
       const { base64, mimeType, previewUrl } = await compressImage(file);
-      setSelectedImage(previewUrl);
+      setSelectedImage({ previewUrl, base64, mimeType });
       identifyMutation.mutate({ data: { imageBase64: base64, mimeType } });
     } catch {
       toast({ title: t('plant_id.image_error_title'), description: t('plant_id.image_error_desc'), variant: 'destructive' });
@@ -130,7 +130,7 @@ export default function PlantIdentifier() {
           <div className="p-6 sm:p-8 flex flex-col items-center">
             <div className="relative w-full max-w-md mx-auto rounded-xl overflow-hidden bg-muted border border-border shadow-sm">
               <img
-                src={selectedImage}
+                src={selectedImage.previewUrl}
                 alt={t('plant_id.selected_alt')}
                 className="w-full h-full max-h-[320px] sm:max-h-[360px] object-contain"
               />
@@ -210,7 +210,7 @@ export default function PlantIdentifier() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => { if (selectedImage) identifyMutation.retry?.(); }}
+                onClick={() => { if (selectedImage) identifyMutation.mutate({ data: { imageBase64: selectedImage.base64, mimeType: selectedImage.mimeType } }); }}
                 className="gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/10"
               >
                 <RefreshCw className="w-3.5 h-3.5" /> {t('plant_id.try_again')}

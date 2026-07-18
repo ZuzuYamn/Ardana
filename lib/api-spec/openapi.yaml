@@ -402,6 +402,8 @@ components:
           type: ["integer", "null"]
         fertilizingIntervalDays:
           type: ["integer", "null"]
+        pruningIntervalDays:
+          type: ["integer", "null"]
         createdAt:
           type: string
           format: date-time
@@ -451,6 +453,8 @@ components:
           type: ["integer", "null"]
         fertilizingIntervalDays:
           type: ["integer", "null"]
+        pruningIntervalDays:
+          type: ["integer", "null"]
         createdAt:
           type: string
           format: date-time
@@ -495,6 +499,8 @@ components:
           type: integer
         fertilizingIntervalDays:
           type: integer
+        pruningIntervalDays:
+          type: integer
       required:
         - name
         - type
@@ -532,6 +538,8 @@ components:
         wateringIntervalDays:
           type: integer
         fertilizingIntervalDays:
+          type: integer
+        pruningIntervalDays:
           type: integer
 
     Reminder:

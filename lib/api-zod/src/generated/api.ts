@@ -40,6 +40,7 @@ export const ListPlantsResponseItem = zod.object({
   "healthStatus": zod.string().describe('healthy | moderate | poor | unknown'),
   "wateringIntervalDays": zod.number().nullish(),
   "fertilizingIntervalDays": zod.number().nullish(),
+  "pruningIntervalDays": zod.number().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -62,7 +63,8 @@ export const CreatePlantBody = zod.object({
   "plantedDate": zod.coerce.date().optional(),
   "healthStatus": zod.string().optional(),
   "wateringIntervalDays": zod.number().optional(),
-  "fertilizingIntervalDays": zod.number().optional()
+  "fertilizingIntervalDays": zod.number().optional(),
+  "pruningIntervalDays": zod.number().optional()
 })
 
 export const CreatePlantResponse = zod.object({
@@ -80,6 +82,7 @@ export const CreatePlantResponse = zod.object({
   "healthStatus": zod.string().describe('healthy | moderate | poor | unknown'),
   "wateringIntervalDays": zod.number().nullish(),
   "fertilizingIntervalDays": zod.number().nullish(),
+  "pruningIntervalDays": zod.number().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -123,6 +126,7 @@ export const GetPlantResponse = zod.object({
   "healthStatus": zod.string(),
   "wateringIntervalDays": zod.number().nullish(),
   "fertilizingIntervalDays": zod.number().nullish(),
+  "pruningIntervalDays": zod.number().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date(),
   "reminders": zod.array(zod.object({
@@ -161,7 +165,8 @@ export const UpdatePlantBody = zod.object({
   "lastPrunedDate": zod.coerce.date().optional(),
   "healthStatus": zod.string().optional(),
   "wateringIntervalDays": zod.number().optional(),
-  "fertilizingIntervalDays": zod.number().optional()
+  "fertilizingIntervalDays": zod.number().optional(),
+  "pruningIntervalDays": zod.number().optional()
 })
 
 export const UpdatePlantResponse = zod.object({
@@ -179,6 +184,7 @@ export const UpdatePlantResponse = zod.object({
   "healthStatus": zod.string().describe('healthy | moderate | poor | unknown'),
   "wateringIntervalDays": zod.number().nullish(),
   "fertilizingIntervalDays": zod.number().nullish(),
+  "pruningIntervalDays": zod.number().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })

@@ -49,7 +49,7 @@ export function LocationPicker({ value, onChange, placeholder, disabled, classNa
     setIsSearching(true);
     try {
       const res = await fetch(`/api/weather/geocode?q=${encodeURIComponent(q)}`);
-      if (!res.ok) throw new Error('Search failed');
+      if (!res.ok) throw new Error(t('weather.search_failed'));
       const data: LocationSuggestion[] = await res.json();
       setSuggestions(data);
       setShowDropdown(data.length > 0);
@@ -96,9 +96,9 @@ export function LocationPicker({ value, onChange, placeholder, disabled, classNa
         try {
           const { latitude, longitude } = position.coords;
           const res = await fetch(`/api/weather/geocode?q=${latitude},${longitude}`);
-          if (!res.ok) throw new Error('Reverse geocode failed');
+          if (!res.ok) throw new Error(t('weather.reverse_geocode_failed'));
           const data: LocationSuggestion[] = await res.json();
-          if (data.length === 0) throw new Error('No results');
+          if (data.length === 0) throw new Error(t('weather.no_results'));
           const loc = data[0];
           onChange(loc.label);
           toast({

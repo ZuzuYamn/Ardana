@@ -9,24 +9,11 @@ import type { WeatherCurrent } from './weatherCurrent';
 import type { WeatherDaily } from './weatherDaily';
 import type { WeatherHourly } from './weatherHourly';
 
-export interface WeatherAlert {
-  type: 'watering' | 'fertilizing' | 'pruning' | 'spraying' | 'harvesting' | 'protection' | 'general';
-  severity: 'info' | 'warning' | 'critical';
-  title: string;
-  message: string;
-  plantName?: string | null;
-}
-
 export interface WeatherData {
   locationName: string;
-  lat: number;
-  lon: number;
-  timezone: string;
   current: WeatherCurrent;
   hourly: WeatherHourly[];
   daily: WeatherDaily[];
-  /** Rule-based care recommendation */
+  /** AI-generated care recommendation based on weather */
   recommendation: string;
-  /** AI-generated plant-specific alerts (populated after /weather/ai-alerts call) */
-  aiAlerts: WeatherAlert[];
 }

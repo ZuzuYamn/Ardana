@@ -11,18 +11,8 @@ export interface WeatherCurrent {
   feelsLike: number;
   humidity: number;
   windSpeed: number;
-  windDir: string;
-  windDegree: number;
-  windGust: number;
   weatherCode: number;
   weatherDescription: string;
-  weatherIcon: string;
   isDay: boolean;
   precipitation: number;
-  pressure: number;
-  visibility: number;
-  cloudCover: number;
-  uvIndex: number;
-  /** US EPA Air Quality Index 1-6 */
-  airQualityIndex: number;
 }

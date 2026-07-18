@@ -32,6 +32,8 @@ export interface PlantDetail {
   wateringIntervalDays?: number | null;
   /** @nullable */
   fertilizingIntervalDays?: number | null;
+  /** @nullable */
+  pruningIntervalDays?: number | null;
   createdAt: Date;
   updatedAt: Date;
   reminders: Reminder[];

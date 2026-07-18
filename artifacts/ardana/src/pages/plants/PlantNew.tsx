@@ -36,6 +36,7 @@ interface PlantIdentification {
   soilType: string | null;
   suggestedWateringIntervalDays: number | null;
   suggestedFertilizingIntervalDays: number | null;
+  suggestedPruningIntervalDays: number | null;
   estimatedAgeYears: number | null;
   error: string | null;
 }
@@ -48,10 +49,12 @@ async function calculatePlantingDateFromAge({
   ageYears,
   currentDate,
   location,
+  t,
 }: {
   ageYears: number;
   currentDate: Date;
   location?: string;
+  t: (key: string) => string;
 }): Promise<string> {
   const age = Math.max(0, ageYears);
   const targetYear = currentDate.getFullYear() - age;
@@ -65,9 +68,9 @@ async function calculatePlantingDateFromAge({
   // Try to use the location to pick a hemisphere-appropriate planting season.
   try {
     const res = await fetch(`/api/weather/geocode?q=${encodeURIComponent(location)}`);
-    if (!res.ok) throw new Error('Geocoding failed');
+    if (!res.ok) throw new Error(t('plant_new.geocode_failed'));
     const data = (await res.json()) as Array<{ lat: number }>;
-    if (!data.length) throw new Error('No results');
+    if (!data.length) throw new Error(t('plant_new.no_results'));
     const lat = data[0].lat;
     const isTropical = Math.abs(lat) <= 23.5;
     const isNorthern = lat >= 0;
@@ -106,8 +109,10 @@ interface AIResults {
 interface CareScheduleResult {
   wateringIntervalDays: number;
   fertilizingIntervalDays: number;
+  pruningIntervalDays: number | null;
   wateringNotes: string;
   fertilizingNotes: string;
+  pruningNotes: string;
   explanation: string;
 }
 
@@ -150,6 +155,7 @@ const buildFormSchema = (t: (key: string) => string) => z.object({
   healthStatus: z.string().default('unknown'),
   wateringIntervalDays: z.coerce.number().int().positive().optional().or(z.literal('')),
   fertilizingIntervalDays: z.coerce.number().int().positive().optional().or(z.literal('')),
+  pruningIntervalDays: z.coerce.number().int().positive().optional().or(z.literal('')),
   notes: z.string().optional(),
 });
 
@@ -169,7 +175,7 @@ export default function PlantNew() {
   const [aiEstimatedPlantedDate, setAiEstimatedPlantedDate] = useState<string | null>(null);
   const [careSchedule, setCareSchedule] = useState<CareScheduleResult | null>(null);
   const [isLoadingCareSchedule, setIsLoadingCareSchedule] = useState(false);
-  const [lastRecommendedSchedule, setLastRecommendedSchedule] = useState<{ watering: number; fertilizing: number } | null>(null);
+  const [lastRecommendedSchedule, setLastRecommendedSchedule] = useState<{ watering: number; fertilizing: number; pruning: number | null } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const hasUserEditedPlantedDate = useRef(false);
 
@@ -186,6 +192,7 @@ export default function PlantNew() {
       // AI identification will override these if it detects a specific species.
       wateringIntervalDays: 3,
       fertilizingIntervalDays: 20,
+      pruningIntervalDays: '',
       notes: '',
     },
   });
@@ -235,9 +242,13 @@ export default function PlantNew() {
         if (identification.suggestedFertilizingIntervalDays) {
           form.setValue('fertilizingIntervalDays', identification.suggestedFertilizingIntervalDays as any);
         }
+        if (identification.suggestedPruningIntervalDays) {
+          form.setValue('pruningIntervalDays', identification.suggestedPruningIntervalDays as any);
+        }
         setLastRecommendedSchedule({
           watering: identification.suggestedWateringIntervalDays ?? 3,
           fertilizing: identification.suggestedFertilizingIntervalDays ?? 20,
+          pruning: identification.suggestedPruningIntervalDays ?? null,
         });
         if (identification.estimatedAgeYears != null) {
           const currentLocation = form.getValues('location');
@@ -245,6 +256,7 @@ export default function PlantNew() {
             ageYears: identification.estimatedAgeYears,
             currentDate: new Date(),
             location: currentLocation,
+            t,
           });
           setAiEstimatedPlantedDate(estimatedDate);
           if (!hasUserEditedPlantedDate.current) {
@@ -291,6 +303,7 @@ export default function PlantNew() {
       ageYears: aiResults.identification.estimatedAgeYears,
       currentDate: new Date(),
       location: currentLocation,
+      t,
     }).then((estimatedDate) => {
       if (cancelled) return;
       setAiEstimatedPlantedDate(estimatedDate);
@@ -323,7 +336,7 @@ export default function PlantNew() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? 'Failed to generate care schedule');
+        throw new Error(err.error ?? t('plant_new.schedule_failed'));
       }
       const schedule: CareScheduleResult = await res.json();
       setCareSchedule(schedule);
@@ -331,17 +344,22 @@ export default function PlantNew() {
       // Only overwrite the form values if the user has not manually edited them.
       const currentWatering = form.getValues('wateringIntervalDays');
       const currentFertilizing = form.getValues('fertilizingIntervalDays');
+      const currentPruning = form.getValues('pruningIntervalDays');
       const isUnchanged =
         lastRecommendedSchedule === null
-          ? (currentWatering === 3 && currentFertilizing === 20)
-          : (currentWatering === lastRecommendedSchedule.watering && currentFertilizing === lastRecommendedSchedule.fertilizing);
+          ? (currentWatering === 3 && currentFertilizing === 20 && currentPruning === '')
+          : (currentWatering === lastRecommendedSchedule.watering && currentFertilizing === lastRecommendedSchedule.fertilizing && currentPruning === (lastRecommendedSchedule.pruning ?? ''));
 
       if (isUnchanged) {
         form.setValue('wateringIntervalDays', schedule.wateringIntervalDays as any);
         form.setValue('fertilizingIntervalDays', schedule.fertilizingIntervalDays as any);
+        if (schedule.pruningIntervalDays != null) {
+          form.setValue('pruningIntervalDays', schedule.pruningIntervalDays as any);
+        }
         setLastRecommendedSchedule({
           watering: schedule.wateringIntervalDays,
           fertilizing: schedule.fertilizingIntervalDays,
+          pruning: schedule.pruningIntervalDays,
         });
       }
     } catch (err) {
@@ -373,6 +391,7 @@ export default function PlantNew() {
         healthStatus: data.healthStatus,
         wateringIntervalDays: data.wateringIntervalDays === '' ? undefined : Number(data.wateringIntervalDays) || undefined,
         fertilizingIntervalDays: data.fertilizingIntervalDays === '' ? undefined : Number(data.fertilizingIntervalDays) || undefined,
+        pruningIntervalDays: data.pruningIntervalDays === '' ? undefined : Number(data.pruningIntervalDays) || undefined,
         notes: data.notes || undefined,
         photoDataUrl: imageData?.dataUrl,
         imageBase64: undefined as string | undefined,
@@ -390,7 +409,7 @@ export default function PlantNew() {
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || 'Failed to save plant');
+        throw new Error(err.error || t('plant_new.save_failed'));
       }
 
       const plant = await res.json();
@@ -470,7 +489,7 @@ export default function PlantNew() {
             <div className="relative bg-muted/50 rounded-xl border border-border overflow-hidden flex items-center justify-center">
               <img
                 src={imageData.dataUrl}
-                alt="Plant preview"
+                alt={t('plant_new.preview_alt')}
                 className="w-full h-full max-h-[320px] sm:max-h-[360px] object-contain rounded-xl"
               />
               <button
@@ -551,6 +570,12 @@ export default function PlantNew() {
                         <div>
                           <p className="text-xs text-muted-foreground flex items-center gap-1"><Droplets className="w-3 h-3" /> {t('plant_new.water_every')}</p>
                           <p className="font-medium">{aiResults.identification.suggestedWateringIntervalDays} {t('plant_new.days_suffix')}</p>
+                        </div>
+                      )}
+                      {aiResults.identification.suggestedPruningIntervalDays && (
+                        <div>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1"><Trees className="w-3 h-3" /> {t('plant_new.prune_every')}</p>
+                          <p className="font-medium">{aiResults.identification.suggestedPruningIntervalDays} {t('plant_new.days_suffix')}</p>
                         </div>
                       )}
                       {aiResults.identification.estimatedAgeYears != null && (
@@ -755,7 +780,7 @@ export default function PlantNew() {
                   {careSchedule.explanation}
                 </p>
               )}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="wateringIntervalDays"
@@ -783,6 +808,22 @@ export default function PlantNew() {
                       </FormControl>
                       {careSchedule?.fertilizingNotes && (
                         <p className="text-xs text-muted-foreground">{careSchedule.fertilizingNotes}</p>
+                      )}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="pruningIntervalDays"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">{t('plant_new.prune_interval')}</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={1} placeholder="180" {...field} />
+                      </FormControl>
+                      {careSchedule?.pruningNotes && (
+                        <p className="text-xs text-muted-foreground">{careSchedule.pruningNotes}</p>
                       )}
                       <FormMessage />
                     </FormItem>

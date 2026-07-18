@@ -71,15 +71,15 @@ function formatDay(dateStr: string) {
 }
 
 function uvLabel(uv: number) {
-  if (uv <= 2) return { label: "Low", color: "text-green-600" };
-  if (uv <= 5) return { label: "Moderate", color: "text-yellow-600" };
-  if (uv <= 7) return { label: "High", color: "text-orange-500" };
-  if (uv <= 10) return { label: "Very High", color: "text-red-500" };
-  return { label: "Extreme", color: "text-purple-600" };
+  if (uv <= 2) return { label: "weather.metric_uv_low", color: "text-green-600" };
+  if (uv <= 5) return { label: "weather.metric_uv_moderate", color: "text-yellow-600" };
+  if (uv <= 7) return { label: "weather.metric_uv_high", color: "text-orange-500" };
+  if (uv <= 10) return { label: "weather.metric_uv_very_high", color: "text-red-500" };
+  return { label: "weather.metric_uv_extreme", color: "text-purple-600" };
 }
 
 function aqiLabel(aqi: number) {
-  const labels = ["—", "Good", "Moderate", "Unhealthy*", "Unhealthy", "Very Unhealthy", "Hazardous"];
+  const labels = ["weather.metric_aqi_none", "weather.metric_aqi_good", "weather.metric_aqi_moderate", "weather.metric_aqi_unhealthy_star", "weather.metric_aqi_unhealthy", "weather.metric_aqi_very_unhealthy", "weather.metric_aqi_hazardous"];
   const colors = ["text-gray-400", "text-green-600", "text-yellow-600", "text-orange-500", "text-red-500", "text-red-700", "text-purple-700"];
   const i = Math.min(Math.max(aqi, 0), 6);
   return { label: labels[i] ?? "—", color: colors[i] ?? "text-gray-400" };
@@ -97,13 +97,13 @@ function windDirArrow(dir: string) {
 function buildWeatherContext(weather: WeatherData): string {
   const c = weather.current;
   const lines = [
-    `Location: ${weather.locationName}`,
-    `Current: ${c.temperature}°C, ${c.weatherDescription}, humidity ${c.humidity}%, ` +
-      `wind ${c.windSpeed} km/h ${c.windDir}, UV ${c.uvIndex}, precipitation ${c.precipitation}mm`,
-    `Pressure: ${c.pressure}mb, Visibility: ${c.visibility}km`,
-    `Air Quality Index: ${c.airQualityIndex} (US EPA)`,
+    `weather.label_location: ${weather.locationName}`,
+    `weather.label_current: ${c.temperature}°C, ${c.weatherDescription}, weather.label_humidity ${c.humidity}%, ` +
+      `weather.label_wind ${c.windSpeed} km/h ${c.windDir}, weather.label_uv ${c.uvIndex}, weather.label_precipitation ${c.precipitation}mm`,
+    `weather.label_pressure: ${c.pressure}mb, weather.label_visibility: ${c.visibility}km`,
+    `weather.label_air_quality_index: ${c.airQualityIndex} (weather.label_us_epa)`,
     "",
-    "7-Day Forecast:",
+    "weather.label_7_day_forecast:",
     ...weather.daily.map(
       (d) =>
         `  ${d.date}: ${d.weatherDescription}, max ${d.maxTemp}°C / min ${d.minTemp}°C, ` +
@@ -267,7 +267,7 @@ export default function Weather() {
         try {
           const { latitude, longitude } = position.coords;
           const r = await fetch(`/api/weather/geocode?q=${latitude},${longitude}`);
-          if (!r.ok) throw new Error("Reverse geocode failed");
+          if (!r.ok) throw new Error(t("weather.reverse_geocode_failed"));
           const data: GeoLocation[] = await r.json();
           if (data.length === 0) {
             toast({
@@ -386,11 +386,11 @@ export default function Weather() {
   }));
 
   const chartConfig: Record<ChartMetric, { key: string; label: string; unit: string; color: string; type: "area" | "bar" }> = {
-    temperature: { key: "temperature", label: "Temperature", unit: "°C", color: "hsl(var(--primary))", type: "area" },
-    precipitation: { key: "precipitation", label: "Precipitation", unit: "mm", color: "#3b82f6", type: "bar" },
-    humidity: { key: "humidity", label: "Humidity", unit: "%", color: "#06b6d4", type: "area" },
-    windSpeed: { key: "windSpeed", label: "Wind Speed", unit: "km/h", color: "#8b5cf6", type: "area" },
-    uvIndex: { key: "uvIndex", label: "UV Index", unit: "", color: "#f59e0b", type: "bar" },
+    temperature: { key: "temperature", label: "weather.metric_temperature", unit: "°C", color: "hsl(var(--primary))", type: "area" },
+    precipitation: { key: "precipitation", label: "weather.metric_precipitation", unit: "mm", color: "#3b82f6", type: "bar" },
+    humidity: { key: "humidity", label: "weather.metric_humidity", unit: "%", color: "#06b6d4", type: "area" },
+    windSpeed: { key: "windSpeed", label: "weather.metric_wind_speed", unit: "km/h", color: "#8b5cf6", type: "area" },
+    uvIndex: { key: "uvIndex", label: "weather.metric_uv_index", unit: "", color: "#f59e0b", type: "bar" },
   };
   const cc = chartConfig[chartMetric];
 
@@ -404,10 +404,10 @@ export default function Weather() {
         <div>
           <h1 className="text-3xl md:text-4xl font-serif font-bold text-foreground tracking-tight flex items-center gap-3">
             <CloudSun className="w-8 h-8 text-primary" />
-            Weather Insights
+            {t("weather.title")}
           </h1>
           <p className="text-muted-foreground mt-1">
-            Comprehensive forecasts and AI-powered farm care alerts.
+            {t("weather.subtitle")}
           </p>
         </div>
 
@@ -420,7 +420,7 @@ export default function Weather() {
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-primary border-t-transparent animate-spin" />
               )}
               <Input
-                placeholder="Search city or region…"
+                placeholder={t("weather.search_placeholder")}
                 className="pl-9 pr-8 w-[220px]"
                 value={searchQuery}
                 onChange={(e) => handleSearchInput(e.target.value)}
@@ -430,7 +430,7 @@ export default function Weather() {
             <Button
               variant="outline"
               size="icon"
-              title={currentIsSaved ? "Remove saved location" : "Save this location"}
+               title={currentIsSaved ? t("weather.saved_remove") : t("weather.saved_add")}
               onClick={() => {
                 const loc: GeoLocation = {
                   name: coords.name.split(",")[0] ?? coords.name,
@@ -554,35 +554,35 @@ export default function Weather() {
                     </div>
                   </div>
                   <p className="text-xl font-medium capitalize">{weather.current.weatherDescription}</p>
-                  <p className="text-white/70 text-sm">Feels like {weather.current.feelsLike}°C</p>
+                  <p className="text-white/70 text-sm">{t('weather.feels_like')} {weather.current.feelsLike}°C</p>
                 </div>
 
                 <div className="relative z-10 grid grid-cols-2 gap-3 mt-4 bg-black/20 rounded-2xl p-4 backdrop-blur-sm">
                   <div className="flex items-center gap-2">
                     <Droplets className="w-4 h-4 text-accent" />
                     <div>
-                      <p className="text-[10px] text-white/60 uppercase tracking-wider">Humidity</p>
+                       <p className="text-[10px] text-white/60 uppercase tracking-wider">{t("weather.label_humidity")}</p>
                       <p className="font-semibold">{weather.current.humidity}%</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Wind className="w-4 h-4 text-accent" />
                     <div>
-                      <p className="text-[10px] text-white/60 uppercase tracking-wider">Wind</p>
+                       <p className="text-[10px] text-white/60 uppercase tracking-wider">{t("weather.label_wind")}</p>
                       <p className="font-semibold">{weather.current.windSpeed} km/h {windDirArrow(weather.current.windDir)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Sunrise className="w-4 h-4 text-accent" />
                     <div>
-                      <p className="text-[10px] text-white/60 uppercase tracking-wider">Sunrise</p>
+                       <p className="text-[10px] text-white/60 uppercase tracking-wider">{t("weather.label_sunrise")}</p>
                       <p className="font-semibold">{weather.daily[0]?.sunrise}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Sunset className="w-4 h-4 text-accent" />
                     <div>
-                      <p className="text-[10px] text-white/60 uppercase tracking-wider">Sunset</p>
+                       <p className="text-[10px] text-white/60 uppercase tracking-wider">{t("weather.label_sunset")}</p>
                       <p className="font-semibold">{weather.daily[0]?.sunset}</p>
                     </div>
                   </div>
@@ -624,53 +624,53 @@ export default function Weather() {
                 <>
                   <MetricCard
                     icon={<Sun className="w-5 h-5 text-amber-500" />}
-                    label="UV Index"
+                     label={t("weather.metric_uv_index")}
                     value={`${weather.current.uvIndex}`}
                     sub={uv.label}
                     iconBg="bg-amber-50"
                   />
                   <MetricCard
                     icon={<Thermometer className="w-5 h-5 text-red-500" />}
-                    label="Feels Like"
+                     label={t("weather.metric_feels_like")}
                     value={`${weather.current.feelsLike}°C`}
                     iconBg="bg-red-50"
                   />
                   <MetricCard
                     icon={<Gauge className="w-5 h-5 text-indigo-500" />}
-                    label="Pressure"
+                     label={t("weather.metric_pressure")}
                     value={`${weather.current.pressure} mb`}
                     iconBg="bg-indigo-50"
                   />
                   <MetricCard
                     icon={<Eye className="w-5 h-5 text-sky-500" />}
-                    label="Visibility"
+                     label={t("weather.metric_visibility")}
                     value={`${weather.current.visibility} km`}
                     iconBg="bg-sky-50"
                   />
                   <MetricCard
                     icon={<Wind className="w-5 h-5 text-purple-500" />}
-                    label="Wind Gust"
+                     label={t("weather.metric_wind_gust")}
                     value={`${weather.current.windGust} km/h`}
                     sub={`${weather.current.windDir} ${windDirArrow(weather.current.windDir)}`}
                     iconBg="bg-purple-50"
                   />
                   <MetricCard
                     icon={<Cloud className="w-5 h-5 text-slate-500" />}
-                    label="Cloud Cover"
+                     label={t("weather.metric_cloud_cover")}
                     value={`${weather.current.cloudCover}%`}
                     iconBg="bg-slate-50"
                   />
                   <MetricCard
                     icon={<Droplets className="w-5 h-5 text-blue-500" />}
-                    label="Precipitation"
+                     label={t("weather.metric_precipitation")}
                     value={`${weather.current.precipitation} mm`}
                     iconBg="bg-blue-50"
                   />
                   <MetricCard
                     icon={<Leaf className="w-5 h-5 text-green-600" />}
-                    label="Air Quality"
+                     label={t("weather.metric_air_quality")}
                     value={aqi.label}
-                    sub="US EPA Index"
+                     sub={t("weather.label_us_epa")}
                     iconBg="bg-green-50"
                   />
                 </>
@@ -685,7 +685,7 @@ export default function Weather() {
                 <Sprout className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <h3 className="font-serif font-bold text-base mb-1">Today's Quick Advice</h3>
+                <h3 className="font-serif font-bold text-base mb-1">{t("weather.quick_advice_title")}</h3>
                 <p className="text-foreground/80 leading-relaxed text-sm">{weather.recommendation}</p>
               </div>
             </CardContent>
@@ -695,18 +695,18 @@ export default function Weather() {
           <Card className="shadow-sm border-border">
             <CardContent className="p-6">
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
-                <h3 className="font-serif font-bold text-lg">24-Hour Forecast</h3>
+                <h3 className="font-serif font-bold text-lg">{t("weather.forecast_24h_title")}</h3>
                 <Tabs
                   value={chartMetric}
                   onValueChange={(v) => setChartMetric(v as ChartMetric)}
                   className="sm:ml-auto"
                 >
                   <TabsList className="h-8">
-                    <TabsTrigger value="temperature" className="text-xs px-2.5">🌡 Temp</TabsTrigger>
-                    <TabsTrigger value="precipitation" className="text-xs px-2.5">🌧 Rain</TabsTrigger>
-                    <TabsTrigger value="humidity" className="text-xs px-2.5">💧 Humidity</TabsTrigger>
-                    <TabsTrigger value="windSpeed" className="text-xs px-2.5">💨 Wind</TabsTrigger>
-                    <TabsTrigger value="uvIndex" className="text-xs px-2.5">☀ UV</TabsTrigger>
+                     <TabsTrigger value="temperature" className="text-xs px-2.5">{t("weather.metric_temperature_short")}</TabsTrigger>
+                     <TabsTrigger value="precipitation" className="text-xs px-2.5">{t("weather.metric_rain_short")}</TabsTrigger>
+                     <TabsTrigger value="humidity" className="text-xs px-2.5">{t("weather.metric_humidity_short")}</TabsTrigger>
+                     <TabsTrigger value="windSpeed" className="text-xs px-2.5">{t("weather.metric_wind_short")}</TabsTrigger>
+                     <TabsTrigger value="uvIndex" className="text-xs px-2.5">{t("weather.metric_uv_short")}</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </div>
@@ -756,7 +756,7 @@ export default function Weather() {
 
           {/* ── 7-Day forecast ─────────────────────────────────────────────── */}
           <div>
-            <h3 className="font-serif font-bold text-2xl mb-4">7-Day Forecast</h3>
+            <h3 className="font-serif font-bold text-2xl mb-4">{t("weather.forecast_7d_title")}</h3>
             <div className="space-y-2">
               {weather.daily.map((day, i) => (
                 <Card
@@ -771,7 +771,7 @@ export default function Weather() {
                     <div className="flex items-center gap-3">
                       <div className="w-20 shrink-0">
                         <p className="font-semibold text-sm">
-                          {i === 0 ? "Today" : i === 1 ? "Tomorrow" : formatDay(day.date)}
+                           {i === 0 ? t("weather.day_today") : i === 1 ? t("weather.day_tomorrow") : formatDay(day.date)}
                         </p>
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
                           <Moon className="w-3 h-3" /> {day.moonPhase}
@@ -803,27 +803,27 @@ export default function Weather() {
                       <div className="mt-4 pt-4 border-t border-border">
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
                           <div className="text-sm">
-                            <span className="text-muted-foreground">Wind: </span>
+                            <span className="text-muted-foreground">{t("weather.label_wind")}: </span>
                             <span className="font-medium">{day.maxWindSpeed} km/h</span>
                           </div>
                           <div className="text-sm">
-                            <span className="text-muted-foreground">Humidity: </span>
+                            <span className="text-muted-foreground">{t("weather.label_humidity")}: </span>
                             <span className="font-medium">{day.avgHumidity}%</span>
                           </div>
                           <div className="text-sm">
-                            <span className="text-muted-foreground">Precip: </span>
+                            <span className="text-muted-foreground">{t("weather.label_precip_short")}: </span>
                             <span className="font-medium">{day.precipitation} mm</span>
                           </div>
                           <div className="text-sm">
-                            <span className="text-muted-foreground">Sunrise: </span>
+                            <span className="text-muted-foreground">{t("weather.label_sunrise")}: </span>
                             <span className="font-medium">{day.sunrise}</span>
                           </div>
                           <div className="text-sm">
-                            <span className="text-muted-foreground">Sunset: </span>
+                            <span className="text-muted-foreground">{t("weather.label_sunset")}: </span>
                             <span className="font-medium">{day.sunset}</span>
                           </div>
                           <div className="text-sm">
-                            <span className="text-muted-foreground">UV: </span>
+                            <span className="text-muted-foreground">{t("weather.metric_uv_short")}: </span>
                             <span className={`font-medium ${uvLabel(day.uvIndex).color}`}>
                               {day.uvIndex} — {uvLabel(day.uvIndex).label}
                             </span>
@@ -831,7 +831,7 @@ export default function Weather() {
                         </div>
 
                         <p className="text-xs font-semibold uppercase text-muted-foreground tracking-wider mb-3">
-                          Hourly Breakdown
+                           {t("weather.hourly_breakdown")}
                         </p>
                         <div className="overflow-x-auto pb-1">
                           <div className="flex gap-2 min-w-max">
@@ -867,9 +867,9 @@ export default function Weather() {
           {/* ── AI Smart Alerts ────────────────────────────────────────────── */}
           <div>
             <div className="flex items-center gap-3 mb-4 flex-wrap">
-              <h3 className="font-serif font-bold text-2xl">AI Smart Alerts</h3>
+               <h3 className="font-serif font-bold text-2xl">{t("weather.alerts_title")}</h3>
               <Badge variant="secondary" className="gap-1">
-                <Sprout className="w-3 h-3" /> Plant-aware
+                 <Sprout className="w-3 h-3" /> {t("weather.alerts_badge")}
               </Badge>
               <Button
                 variant="outline"
@@ -909,7 +909,7 @@ export default function Weather() {
                   </div>
                 ))}
                 <p className="text-xs text-muted-foreground text-center animate-pulse">
-                  Analyzing weather + your plants with AI…
+                  {t("weather.alerts_analyzing")}
                 </p>
               </div>
             ) : aiAlerts.length > 0 ? (
@@ -954,9 +954,9 @@ export default function Weather() {
                 <CardContent className="p-8 text-center">
                   <Info className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
                   <p className="text-muted-foreground text-sm">
-                    {weather
-                      ? "No alerts for now — add plants to your collection to get personalized AI recommendations."
-                      : "Load weather data to see AI-powered care alerts."}
+                     {weather
+                       ? t("weather.alerts_empty_with_weather")
+                       : t("weather.alerts_empty_without_weather")}
                   </p>
                 </CardContent>
               </Card>
@@ -966,7 +966,7 @@ export default function Weather() {
       ) : (
         <div className="text-center py-20">
           <CloudRain className="w-16 h-16 text-muted-foreground/40 mx-auto mb-4" />
-          <p className="text-muted-foreground">Unable to load weather data. Check your API key configuration.</p>
+           <p className="text-muted-foreground">{t("weather.error_load_failed")}</p>
         </div>
       )}
     </div>

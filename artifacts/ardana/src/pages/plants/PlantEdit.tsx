@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
   ArrowLeft, Camera, ImagePlus, Leaf, Loader2, CheckCircle2,
-  Droplets, Sparkles, AlertTriangle, X, Sun,
+  Droplets, Sparkles, AlertTriangle, X, Sun, Trees,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +38,7 @@ interface PlantIdentification {
   soilType: string | null;
   suggestedWateringIntervalDays: number | null;
   suggestedFertilizingIntervalDays: number | null;
+  suggestedPruningIntervalDays: number | null;
   error: string | null;
 }
 
@@ -95,6 +96,7 @@ const buildFormSchema = (t: (key: string) => string) => z.object({
   healthStatus: z.string().default('unknown'),
   wateringIntervalDays: z.coerce.number().int().positive().optional().or(z.literal('')),
   fertilizingIntervalDays: z.coerce.number().int().positive().optional().or(z.literal('')),
+  pruningIntervalDays: z.coerce.number().int().positive().optional().or(z.literal('')),
   notes: z.string().optional(),
 });
 
@@ -134,6 +136,7 @@ export default function PlantEdit() {
       healthStatus: 'unknown',
       wateringIntervalDays: 3,
       fertilizingIntervalDays: 20,
+      pruningIntervalDays: '',
       notes: '',
     },
   });
@@ -150,6 +153,7 @@ export default function PlantEdit() {
         healthStatus: plant.healthStatus ?? 'unknown',
         wateringIntervalDays: plant.wateringIntervalDays ?? ('' as any),
         fertilizingIntervalDays: plant.fertilizingIntervalDays ?? ('' as any),
+        pruningIntervalDays: plant.pruningIntervalDays ?? ('' as any),
         notes: plant.notes ?? '',
       });
       setFormReady(true);
@@ -197,6 +201,9 @@ export default function PlantEdit() {
         if (identification.suggestedFertilizingIntervalDays) {
           form.setValue('fertilizingIntervalDays', identification.suggestedFertilizingIntervalDays as any);
         }
+        if (identification.suggestedPruningIntervalDays) {
+          form.setValue('pruningIntervalDays', identification.suggestedPruningIntervalDays as any);
+        }
         if (!disease.isHealthy && disease.urgency === 'immediate') {
           form.setValue('healthStatus', 'poor');
         } else if (!disease.isHealthy) {
@@ -243,6 +250,9 @@ export default function PlantEdit() {
       if (data.fertilizingIntervalDays !== '' && data.fertilizingIntervalDays != null) {
         payload.fertilizingIntervalDays = Number(data.fertilizingIntervalDays);
       }
+      if (data.pruningIntervalDays !== '' && data.pruningIntervalDays != null) {
+        payload.pruningIntervalDays = Number(data.pruningIntervalDays);
+      }
 
       // Include new photo if one was uploaded
       if (newImageData) {
@@ -261,12 +271,12 @@ export default function PlantEdit() {
       queryClient.invalidateQueries({ queryKey: getGetPlantQueryKey(id) });
       queryClient.invalidateQueries({ queryKey: ['listPlants'] });
 
-      toast({ title: 'Plant updated', description: `${data.name} has been saved successfully.` });
+      toast({ title: t('plant_edit.save_success_title'), description: t('plant_edit.save_success_desc', { name: data.name }) });
       navigate(`/plants/${id}`);
     } catch (err) {
       toast({
-        title: 'Could not save changes',
-        description: err instanceof Error ? err.message : 'Please try again.',
+        title: t('plant_edit.save_error_title'),
+        description: err instanceof Error ? err.message : t('plant_edit.save_error_desc'),
         variant: 'destructive',
       });
     } finally {
@@ -283,9 +293,9 @@ export default function PlantEdit() {
     return (
       <div className="text-center py-20">
         <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-        <h2 className="text-2xl font-serif font-bold">Plant not found</h2>
-        <p className="text-muted-foreground mt-2 mb-6">This plant doesn't exist or you don't have access to it.</p>
-        <Button onClick={() => navigate('/plants')}>Back to My Farm</Button>
+        <h2 className="text-2xl font-serif font-bold">{t('plant.not_found')}</h2>
+        <p className="text-muted-foreground mt-2 mb-6">{t('plant.no_access')}</p>
+        <Button onClick={() => navigate('/plants')}>{t('plant.back_to_farm')}</Button>
       </div>
     );
   }
@@ -317,8 +327,8 @@ export default function PlantEdit() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
-          <h1 className="text-3xl font-serif font-bold">Edit Plant</h1>
-          <p className="text-muted-foreground text-sm">Update details for <span className="font-medium">{plant.name}</span></p>
+          <h1 className="text-3xl font-serif font-bold">{t('plant_edit.title')}</h1>
+          <p className="text-muted-foreground text-sm">{t('plant_edit.update_details_for', { name: plant.name })}</p>
         </div>
       </div>
 
@@ -327,10 +337,10 @@ export default function PlantEdit() {
         <div className="p-6 border-b">
           <h2 className="font-serif text-lg font-semibold flex items-center gap-2">
             <Camera className="w-5 h-5 text-primary" />
-            Photo
+            {t('plant_edit.photo_title')}
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {plant.photoUrl ? 'Replace the existing photo or keep it as-is.' : 'Upload a photo — AI will analyse it and suggest updates.'}
+            {plant.photoUrl ? t('plant_edit.photo_existing') : t('plant_edit.photo_upload_cta')}
           </p>
         </div>
 
@@ -366,7 +376,7 @@ export default function PlantEdit() {
                 className="absolute bottom-3 right-3 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-medium hover:bg-black/80 transition-colors flex items-center gap-1.5"
               >
                 <Camera className="w-3.5 h-3.5" />
-                {newImageData ? 'Change photo' : 'Replace photo'}
+                {newImageData ? t('plant_edit.change_photo') : t('plant_edit.replace_photo')}
               </button>
             </div>
           ) : (
@@ -450,6 +460,14 @@ export default function PlantEdit() {
                           <p className="font-medium">{aiResults.identification.suggestedWateringIntervalDays} {t('plant_new.days_suffix')}</p>
                         </div>
                       )}
+                      {aiResults.identification.suggestedPruningIntervalDays && (
+                        <div>
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Trees className="w-3 h-3" /> {t('plant_new.prune_every')}
+                          </p>
+                          <p className="font-medium">{aiResults.identification.suggestedPruningIntervalDays} {t('plant_new.days_suffix')}</p>
+                        </div>
+                      )}
                     </div>
                     {aiResults.identification.careRecommendations && (
                       <p className="text-xs text-muted-foreground border-t pt-2">{aiResults.identification.careRecommendations}</p>
@@ -487,11 +505,11 @@ export default function PlantEdit() {
       {/* ── Details Form ───────────────────────────────────────────────────── */}
       <div className="bg-card border rounded-2xl shadow-sm overflow-hidden">
         <div className="p-6 border-b">
-          <h2 className="font-serif text-lg font-semibold flex items-center gap-2">
-            <Leaf className="w-5 h-5 text-primary" />
-            Plant Details
-          </h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Update any information below and save.</p>
+            <h2 className="font-serif text-lg font-semibold flex items-center gap-2">
+              <Leaf className="w-5 h-5 text-primary" />
+              {t('plant_edit.details_title')}
+            </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">{t('plant_edit.details_desc')}</p>
         </div>
 
         <Form {...form}>
@@ -617,10 +635,10 @@ export default function PlantEdit() {
                   {t('plant_new.care_schedule_title')}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Changing these schedules will update future reminders for this plant.
+                  {t('plant_edit.schedule_hint')}
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="wateringIntervalDays"
@@ -642,6 +660,19 @@ export default function PlantEdit() {
                       <FormLabel className="text-xs">{t('plant_new.fertilize_interval')}</FormLabel>
                       <FormControl>
                         <Input type="number" min={1} placeholder="20" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="pruningIntervalDays"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs">{t('plant_new.prune_interval')}</FormLabel>
+                      <FormControl>
+                        <Input type="number" min={1} placeholder="180" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -670,13 +701,13 @@ export default function PlantEdit() {
 
             <div className="flex justify-end gap-3 pt-2">
               <Button type="button" variant="outline" onClick={() => navigate(`/plants/${id}`)}>
-                {t('plant_new.cancel')}
+                {t('plant_edit.cancel')}
               </Button>
               <Button type="submit" disabled={isSaving || isAnalyzing} className="min-w-[130px]">
                 {isSaving ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Saving…</>
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('plant_edit.saving')}</>
                 ) : (
-                  <><Leaf className="w-4 h-4 mr-2" /> Save Changes</>
+                  <><Leaf className="w-4 h-4 mr-2" /> {t('plant_edit.save_changes')}</>
                 )}
               </Button>
             </div>

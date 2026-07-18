@@ -99,7 +99,16 @@ export default function PlantDetail() {
     });
   };
 
-  const handleCompleteReminder = (reminderId: number) => {
+  const handleCompleteReminder = (reminderId: number, scheduledDate: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    if (scheduledDate !== today) {
+      toast({
+        title: t('reminders.complete_day_only_title'),
+        description: t('reminders.complete_day_only'),
+        variant: 'destructive',
+      });
+      return;
+    }
     updateReminder.mutate({ id: reminderId, data: { completed: true } }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListPlantRemindersQueryKey(id) });
@@ -339,7 +348,7 @@ export default function PlantDetail() {
                       variant="outline" 
                       size="icon" 
                       className="w-8 h-8 rounded-full border-muted-foreground/30 hover:bg-primary hover:text-primary-foreground hover:border-primary shrink-0"
-                      onClick={() => handleCompleteReminder(reminder.id)}
+                      onClick={() => handleCompleteReminder(reminder.id, reminder.scheduledDate)}
                     >
                       <Check className="w-4 h-4" />
                     </Button>

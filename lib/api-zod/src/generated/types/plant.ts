@@ -33,6 +33,8 @@ export interface Plant {
   wateringIntervalDays?: number | null;
   /** @nullable */
   fertilizingIntervalDays?: number | null;
+  /** @nullable */
+  pruningIntervalDays?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

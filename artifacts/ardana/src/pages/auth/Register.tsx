@@ -75,7 +75,7 @@ export default function Register() {
               <ArdanaLogo size={42} variant="dark" />
               <div>
                 <p className="font-serif text-2xl font-bold tracking-tight leading-none text-foreground">
-                  Ardana
+                  {t("sidebar.brand")}
                 </p>
                 <p className="text-xs text-muted-foreground font-medium mt-0.5">
                   {t('sidebar.tagline')}
@@ -130,7 +130,7 @@ export default function Register() {
                           <Input
                             {...field}
                             type="email"
-                            placeholder="you@example.com"
+                            placeholder={t('auth.email_placeholder')}
                             className="pl-9 h-11 bg-white/70"
                             autoComplete="email"
                           />

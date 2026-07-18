@@ -19,6 +19,7 @@ export const plantsTable = pgTable("plants", {
   healthStatus: text("health_status").notNull().default("unknown"), // healthy | moderate | poor | unknown
   wateringIntervalDays: integer("watering_interval_days"),
   fertilizingIntervalDays: integer("fertilizing_interval_days"),
+  pruningIntervalDays: integer("pruning_interval_days"),
   aiIdentification: text("ai_identification"),   // JSON string of plant identification result
   aiDiseaseDetection: text("ai_disease_detection"), // JSON string of disease detection result
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

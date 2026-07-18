@@ -143,14 +143,17 @@ function MetricCard({
   icon, label, value, sub, iconBg,
 }: { icon: React.ReactNode; label: string; value: string; sub?: string; iconBg?: string }) {
   return (
-    <div className="flex items-center gap-3 p-4 rounded-2xl bg-card border border-border shadow-sm">
+    <div className="bg-card border border-border rounded-2xl shadow-sm flex flex-col items-center justify-center text-center gap-2.5 p-4 h-36">
       <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${iconBg ?? "bg-primary/10"}`}>
         {icon}
       </div>
-      <div className="min-w-0">
-        <p className="text-xs text-muted-foreground uppercase tracking-wider truncate">{label}</p>
-        <p className="font-semibold text-foreground leading-tight">{value}</p>
-        {sub && <p className="text-xs text-muted-foreground">{sub}</p>}
+      <div className="w-full flex flex-col items-center gap-0.5 min-w-0 overflow-hidden">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest w-full truncate leading-none">{label}</p>
+        <p className="text-sm font-semibold text-foreground leading-snug w-full truncate mt-0.5">{value}</p>
+        {sub
+          ? <p className="text-[10px] text-muted-foreground w-full truncate leading-none">{sub}</p>
+          : <p className="text-[10px] text-transparent select-none leading-none">—</p>
+        }
       </div>
     </div>
   );
@@ -382,7 +385,7 @@ export default function Weather() {
             <Skeleton className="lg:col-span-3 h-72 rounded-3xl" />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
+            {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-36 rounded-2xl" />)}
           </div>
           <Skeleton className="h-64 rounded-2xl" />
         </div>
@@ -500,7 +503,7 @@ export default function Weather() {
           </div>
 
           {/* ── Detailed metric cards ──────────────────────────────────────── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-8 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {(() => {
               const uv = uvLabel(weather.current.uvIndex);
               const aqi = aqiLabel(weather.current.airQualityIndex);

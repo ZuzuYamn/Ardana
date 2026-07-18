@@ -94,7 +94,9 @@ export const GetPlantDashboardResponse = zod.object({
   "byHealth": zod.record(zod.string(), zod.number()),
   "upcomingRemindersCount": zod.number(),
   "overdueRemindersCount": zod.number(),
-  "recentlyWatered": zod.number(),
+  "recentlyWatered": zod.number().describe('Number of plants watered today or yesterday'),
+  "wateredToday": zod.number().describe('Number of plants watered today'),
+  "wateredYesterday": zod.number().describe('Number of plants watered yesterday'),
   "needsAttention": zod.number()
 })
 

@@ -14,6 +14,11 @@ export interface DashboardStats {
   byHealth: DashboardStatsByHealth;
   upcomingRemindersCount: number;
   overdueRemindersCount: number;
+  /** Number of plants watered today or yesterday */
   recentlyWatered: number;
+  /** Number of plants watered today */
+  wateredToday: number;
+  /** Number of plants watered yesterday */
+  wateredYesterday: number;
   needsAttention: number;
 }

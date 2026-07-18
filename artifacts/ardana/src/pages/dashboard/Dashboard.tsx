@@ -30,7 +30,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { format } from "date-fns";
+import { format, isToday, isTomorrow } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
@@ -45,6 +45,14 @@ export default function Dashboard() {
   const { data: reminders, isLoading: remindersLoading } = useListReminders({
     upcoming: "true",
   });
+
+  const today = new Date().toISOString().split("T")[0];
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+  const upcomingTodayOrTomorrow = reminders?.filter(
+    (r) => r.scheduledDate === today || r.scheduledDate === tomorrow,
+  );
 
   const container = {
     hidden: { opacity: 0 },
@@ -164,27 +172,34 @@ export default function Dashboard() {
         </motion.div>
 
         <motion.div variants={item} className="h-full">
-          <Card className="h-full bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all">
-            <CardContent className="p-6 h-full flex flex-col justify-center">
-              <div className="flex items-center justify-between">
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {t("dashboard.recently_watered")}
-                  </p>
-                  <p className="text-3xl font-serif font-bold text-blue-600">
-                    {statsLoading ? (
-                      <Skeleton className="h-8 w-16" />
-                    ) : (
-                      stats?.recentlyWatered || 0
-                    )}
-                  </p>
+          <Link href="/reminders?tab=completed" className="block h-full">
+            <Card className="h-full bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all cursor-pointer">
+              <CardContent className="p-6 h-full flex flex-col justify-center">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {t("dashboard.recently_watered")}
+                    </p>
+                    <p className="text-3xl font-serif font-bold text-blue-600">
+                      {statsLoading ? (
+                        <Skeleton className="h-8 w-16" />
+                      ) : (
+                        stats?.recentlyWatered || 0
+                      )}
+                    </p>
+                    {!statsLoading && stats && (stats.wateredToday || stats.wateredYesterday) ? (
+                      <p className="text-xs text-blue-600/80 font-medium">
+                        {stats.wateredToday || 0} {t("dashboard.watered_today")} · {stats.wateredYesterday || 0} {t("dashboard.watered_yesterday")}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                    <Droplets className="w-6 h-6 text-blue-600" />
+                  </div>
                 </div>
-                <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                  <Droplets className="w-6 h-6 text-blue-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </Link>
         </motion.div>
       </motion.div>
 
@@ -224,12 +239,12 @@ export default function Dashboard() {
                     <Skeleton key={i} className="h-14 w-full rounded-xl" />
                   ))}
                 </div>
-              ) : reminders && reminders.length > 0 ? (
+              ) : upcomingTodayOrTomorrow && upcomingTodayOrTomorrow.length > 0 ? (
                 <div className="space-y-2">
-                  {reminders.slice(0, 5).map((reminder) => {
-                    const isOverdue =
-                      reminder.scheduledDate <
-                      new Date().toISOString().split("T")[0];
+                  {upcomingTodayOrTomorrow.slice(0, 5).map((reminder) => {
+                    const scheduled = new Date(reminder.scheduledDate + "T12:00:00");
+                    const isTodayDate = isToday(scheduled);
+                    const isTomorrowDate = isTomorrow(scheduled);
                     const typeColors: Record<string, string> = {
                       watering: "bg-blue-100 text-blue-700",
                       fertilizing: "bg-green-100 text-green-700",
@@ -243,9 +258,7 @@ export default function Dashboard() {
                         key={reminder.id}
                         className={cn(
                           "flex items-center gap-3 p-3 rounded-xl border transition-colors",
-                          isOverdue
-                            ? "border-destructive/30 bg-destructive/5"
-                            : "border-border bg-background",
+                          "border-border bg-background",
                         )}
                       >
                         <span
@@ -260,19 +273,14 @@ export default function Dashboard() {
                           <p className="text-sm font-medium truncate">
                             {reminder.plantName}
                           </p>
-                          <p
-                            className={cn(
-                              "text-xs",
-                              isOverdue
-                                ? "text-destructive font-medium"
-                                : "text-muted-foreground",
-                            )}
-                          >
-                            {isOverdue ? t("dashboard.overdue_prefix") : ""}
-                            {format(
-                              new Date(reminder.scheduledDate + "T12:00:00"),
-                              "MMM d, yyyy",
-                            )}
+                          <p className="text-xs text-muted-foreground">
+                            {isTodayDate
+                              ? t("reminders.today")
+                              : isTomorrowDate
+                                ? t("dashboard.tomorrow")
+                                : format(scheduled, "MMM d, yyyy")}
+                            <span className="mx-1.5">·</span>
+                            {format(scheduled, "MMM d, yyyy")}
                           </p>
                         </div>
                       </div>
@@ -283,10 +291,10 @@ export default function Dashboard() {
                 <div className="py-8 text-center">
                   <CalendarClock className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
                   <p className="text-sm text-muted-foreground">
-                    {t("dashboard.no_reminders")}
+                    {t("dashboard.no_tasks_today_or_tomorrow")}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {t("dashboard.no_reminders_desc")}
+                    {t("dashboard.no_tasks_today_or_tomorrow_desc")}
                   </p>
                 </div>
               )}

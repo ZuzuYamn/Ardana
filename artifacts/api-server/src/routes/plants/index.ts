@@ -76,7 +76,7 @@ router.get("/plants/dashboard", async (req, res): Promise<void> => {
   const userId = req.session.userId!;
   const today = new Date().toISOString().split("T")[0];
   const sevenDaysLater = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const yesterday = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
   const plants = await db.select().from(plantsTable).where(eq(plantsTable.userId, userId));
   const allReminders = await db
@@ -97,7 +97,9 @@ router.get("/plants/dashboard", async (req, res): Promise<void> => {
     (r) => r.scheduledDate >= today && r.scheduledDate <= sevenDaysLater
   ).length;
   const overdueRemindersCount = pendingReminders.filter((r) => r.scheduledDate < today).length;
-  const recentlyWatered = plants.filter((p) => p.lastWateredDate && p.lastWateredDate >= threeDaysAgo).length;
+  const wateredToday = plants.filter((p) => p.lastWateredDate === today).length;
+  const wateredYesterday = plants.filter((p) => p.lastWateredDate === yesterday).length;
+  const recentlyWatered = wateredToday + wateredYesterday;
   const needsAttention = plants.filter((p) => p.healthStatus === "poor" || p.healthStatus === "moderate").length;
 
   res.json({
@@ -107,6 +109,8 @@ router.get("/plants/dashboard", async (req, res): Promise<void> => {
     upcomingRemindersCount,
     overdueRemindersCount,
     recentlyWatered,
+    wateredToday,
+    wateredYesterday,
     needsAttention,
   });
 });

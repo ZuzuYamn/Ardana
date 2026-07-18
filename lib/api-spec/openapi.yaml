@@ -614,6 +614,13 @@ components:
           type: integer
         recentlyWatered:
           type: integer
+          description: Number of plants watered today or yesterday
+        wateredToday:
+          type: integer
+          description: Number of plants watered today
+        wateredYesterday:
+          type: integer
+          description: Number of plants watered yesterday
         needsAttention:
           type: integer
       required:
@@ -623,6 +630,8 @@ components:
         - upcomingRemindersCount
         - overdueRemindersCount
         - recentlyWatered
+        - wateredToday
+        - wateredYesterday
         - needsAttention
 
     PlantImageInput:

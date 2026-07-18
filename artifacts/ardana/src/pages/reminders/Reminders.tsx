@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useListReminders, useUpdateReminder, getListRemindersQueryKey, useListPlants, useCreateReminder, getGetPlantDashboardQueryKey, getListPlantsQueryKey } from '@workspace/api-client-react';
+import { useSearch, useLocation } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Bell, CheckCircle2, Circle, Sprout, Droplets, Leaf, Calendar, Plus, Clock,
@@ -445,8 +446,19 @@ export default function Reminders() {
   const { toast } = useToast();
   const { t } = useLanguage();
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState('upcoming');
+  const searchStr = useSearch();
+  const initialTab = new URLSearchParams(searchStr).get('tab') === 'completed' ? 'completed' : 'upcoming';
+  const [tab, setTab] = useState(initialTab);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [, navigate] = useLocation();
+
+  // Keep the URL in sync with the selected tab so deep links work
+  useEffect(() => {
+    const expected = tab === 'completed' ? '?tab=completed' : '';
+    if (location.search !== expected) {
+      navigate(`/reminders${expected}`, { replace: true });
+    }
+  }, [tab, navigate]);
 
   const { data: reminders, isLoading } = useListReminders({ 
     completed: tab === 'completed' ? 'true' : 'false' 

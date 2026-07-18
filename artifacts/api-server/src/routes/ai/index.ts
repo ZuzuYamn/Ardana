@@ -188,7 +188,7 @@ router.post("/ai/identify-plant", async (req, res) => {
   const { imageBase64, mimeType } = parsed.data;
 
   try {
-    const raw = await generateFromImage(imageBase64, mimeType, IDENTIFY_PROMPT);
+    const raw = await generateFromImage("plant-identification", imageBase64, mimeType, IDENTIFY_PROMPT);
     const jsonText = stripFences(raw);
 
     let result: Record<string, unknown>;
@@ -224,7 +224,7 @@ router.post("/ai/detect-disease", async (req, res) => {
   const { imageBase64, mimeType } = parsed.data;
 
   try {
-    const raw = await generateFromImage(imageBase64, mimeType, DISEASE_PROMPT);
+    const raw = await generateFromImage("disease-detection", imageBase64, mimeType, DISEASE_PROMPT);
     const jsonText = stripFences(raw);
 
     let result: Record<string, unknown>;
@@ -285,7 +285,7 @@ router.post("/ai/chat", async (req, res) => {
       },
     ];
 
-    const reply = await sendChatCompletion(messages);
+    const reply = await sendChatCompletion("ai-assistant", messages);
 
     if (!reply) {
       res
@@ -331,7 +331,7 @@ router.post("/ai/support", async (req, res) => {
       { role: "user", content: message },
     ];
 
-    const reply = await sendChatCompletion(messages, { maxTokens: 1024 });
+    const reply = await sendChatCompletion("contact-support", messages, { maxTokens: 1024 });
 
     if (!reply) {
       res

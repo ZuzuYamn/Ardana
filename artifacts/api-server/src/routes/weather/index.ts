@@ -247,7 +247,7 @@ Rules:
 
 Return ONLY the JSON array. No markdown. No extra text.`;
 
-    const raw = (await sendChatCompletion([{ role: "user", content: prompt }]))
+    const raw = (await sendChatCompletion("smart-weather-alerts", [{ role: "user", content: prompt }]))
       .replace(/^```json?\s*/i, "")
       .replace(/```\s*$/, "")
       .trim();
@@ -382,7 +382,7 @@ Each object must have:
 
 Return ONLY a JSON array. No markdown, no code fences, no extra text.`;
 
-    const raw = (await sendChatCompletion([{ role: "user", content: prompt }]))
+    const raw = (await sendChatCompletion("smart-weather-alerts", [{ role: "user", content: prompt }]))
       .replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
 
     let alerts: unknown[] = [];

@@ -150,10 +150,10 @@ Return a valid JSON object (no markdown, no code blocks) with these exact fields
 
       const [identifyResult, diseaseResult] = await Promise.allSettled([
         !aiIdentification
-          ? generateFromImage(imageBase64, mimeType, IDENTIFY_PROMPT).then(strip)
+          ? generateFromImage("plant-identification", imageBase64, mimeType, IDENTIFY_PROMPT).then(strip)
           : Promise.resolve(aiIdentification),
         !aiDiseaseDetection
-          ? generateFromImage(imageBase64, mimeType, DISEASE_PROMPT).then(strip)
+          ? generateFromImage("disease-detection", imageBase64, mimeType, DISEASE_PROMPT).then(strip)
           : Promise.resolve(aiDiseaseDetection),
       ]);
 

@@ -109,7 +109,7 @@ export default function PlantEdit() {
   const id = params?.id ? parseInt(params.id, 10) : 0;
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language, isRTL } = useLanguage();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -178,13 +178,13 @@ export default function PlantEdit() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ imageBase64: compressed.base64, mimeType: compressed.mimeType }),
+            body: JSON.stringify({ imageBase64: compressed.base64, mimeType: compressed.mimeType, language }),
           }),
           fetch('/api/ai/detect-disease', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ imageBase64: compressed.base64, mimeType: compressed.mimeType }),
+            body: JSON.stringify({ imageBase64: compressed.base64, mimeType: compressed.mimeType, language }),
           }),
         ]);
 
@@ -317,7 +317,7 @@ export default function PlantEdit() {
   const displayPhotoUrl = newImageData?.dataUrl ?? plant.photoUrl ?? null;
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-16">
+    <div className="max-w-3xl mx-auto space-y-6 pb-16" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Header */}
       <div className="flex items-center gap-4 mb-2">
         <Link
@@ -705,9 +705,9 @@ export default function PlantEdit() {
               </Button>
               <Button type="submit" disabled={isSaving || isAnalyzing} className="min-w-[130px]">
                 {isSaving ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('plant_edit.saving')}</>
+                  <><Loader2 className="w-4 h-4 me-2 animate-spin" /> {t('plant_edit.saving')}</>
                 ) : (
-                  <><Leaf className="w-4 h-4 mr-2" /> {t('plant_edit.save_changes')}</>
+                  <><Leaf className="w-4 h-4 me-2" /> {t('plant_edit.save_changes')}</>
                 )}
               </Button>
             </div>

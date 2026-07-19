@@ -4,3 +4,4 @@
 - [Reminder date type mismatch](reminders-date-types.md) — orval zod schemas coerce dates to Date while drizzle date column uses string mode; convert to ISO date before DB writes
 - [AI-generated reminder recurrence](ai-reminder-recurrence.md) — care intervals live on the plant, not the reminder; pre-fill edits from the plant's matching interval
 - [RTL toggle switch thumb](rtl-switch-thumb.md) — Radix Switch uses physical translate-x transforms; use rtl variants to swap checked/unchecked thumb positions in RTL
+- [Reminder recurrence care types](reminder-recurrence-types.md) — recurring reminders only generate next occurrence if type is in backend careTypeConfig; regen lib types after schema changes

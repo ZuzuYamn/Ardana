@@ -34,6 +34,10 @@ export interface Plant {
   lastFertilizedDate?: string | null;
   /** @nullable */
   lastPrunedDate?: string | null;
+  /** @nullable */
+  lastSprayedDate?: string | null;
+  /** @nullable */
+  lastHarvestedDate?: string | null;
   /** healthy | moderate | poor | unknown */
   healthStatus: string;
   /** @nullable */
@@ -42,6 +46,10 @@ export interface Plant {
   fertilizingIntervalDays?: number | null;
   /** @nullable */
   pruningIntervalDays?: number | null;
+  /** @nullable */
+  sprayingIntervalDays?: number | null;
+  /** @nullable */
+  harvestingIntervalDays?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -115,6 +123,8 @@ export interface PlantInput {
   wateringIntervalDays?: number;
   fertilizingIntervalDays?: number;
   pruningIntervalDays?: number;
+  sprayingIntervalDays?: number;
+  harvestingIntervalDays?: number;
 }
 
 export interface PlantUpdate {
@@ -129,10 +139,14 @@ export interface PlantUpdate {
   lastWateredDate?: string;
   lastFertilizedDate?: string;
   lastPrunedDate?: string;
+  lastSprayedDate?: string;
+  lastHarvestedDate?: string;
   healthStatus?: string;
   wateringIntervalDays?: number;
   fertilizingIntervalDays?: number;
   pruningIntervalDays?: number;
+  sprayingIntervalDays?: number;
+  harvestingIntervalDays?: number;
 }
 
 export interface ReminderInput {

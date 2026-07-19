@@ -3,23 +3,24 @@ import { Sidebar } from './Sidebar';
 import { MobileNav } from './MobileNav';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
+import { useLanguage } from '@/lib/contexts/LanguageContext';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export function Layout({ children }: LayoutProps) {
-  // Language only affects nav labels — layout stays LTR
+  const { isRTL } = useLanguage();
 
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground font-sans">
+    <div className="min-h-[100dvh] bg-background text-foreground font-sans" dir={isRTL ? 'rtl' : 'ltr'}>
       <Sidebar />
       <MobileNav />
       <main className={cn(
         "flex flex-col min-h-[100dvh] pb-16 md:pb-0 pt-16 md:pt-0 transition-all duration-300",
-        "md:pl-64"
+        "md:ps-64"
       )}>
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}

@@ -166,7 +166,7 @@ type FormValues = z.infer<ReturnType<typeof buildFormSchema>>;
 export default function PlantNew() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const { t, language } = useLanguage();
+  const { t, language, isRTL } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [imageData, setImageData] = useState<{ dataUrl: string; base64: string; mimeType: string } | null>(null);
@@ -218,13 +218,13 @@ export default function PlantNew() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ imageBase64: compressed.base64, mimeType: compressed.mimeType }),
+            body: JSON.stringify({ imageBase64: compressed.base64, mimeType: compressed.mimeType, language }),
           }),
           fetch('/api/ai/detect-disease', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'include',
-            body: JSON.stringify({ imageBase64: compressed.base64, mimeType: compressed.mimeType }),
+            body: JSON.stringify({ imageBase64: compressed.base64, mimeType: compressed.mimeType, language }),
           }),
         ]);
 
@@ -437,7 +437,7 @@ export default function PlantNew() {
     c === 'high' ? 'bg-green-100 text-green-800' : c === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-700';
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-16">
+    <div className="max-w-3xl mx-auto space-y-6 pb-16" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Header */}
       <div className="flex items-center gap-4 mb-2">
         <Link href="/plants" className="w-10 h-10 rounded-full border bg-card flex items-center justify-center hover:bg-muted transition-colors">
@@ -626,7 +626,7 @@ export default function PlantNew() {
           <h2 className="font-serif text-lg font-semibold flex items-center gap-2">
             <Leaf className="w-5 h-5 text-primary" />
             {t('plant_new.details_title')}
-            {aiResults && <Badge variant="secondary" className="ml-2 text-xs">{t('plant_new.prefilled_badge')}</Badge>}
+            {aiResults && <Badge variant="secondary" className="ms-2 text-xs">{t('plant_new.prefilled_badge')}</Badge>}
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">{t('plant_new.details_desc')}</p>
         </div>
@@ -857,9 +857,9 @@ export default function PlantNew() {
               </Button>
               <Button type="submit" disabled={isSaving || isAnalyzing} className="min-w-[130px]">
                 {isSaving ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> {t('plant_new.saving')}</>
+                  <><Loader2 className="w-4 h-4 me-2 animate-spin" /> {t('plant_new.saving')}</>
                 ) : (
-                  <><Leaf className="w-4 h-4 mr-2" /> {t('plant_new.save')}</>
+                  <><Leaf className="w-4 h-4 me-2" /> {t('plant_new.save')}</>
                 )}
               </Button>
             </div>

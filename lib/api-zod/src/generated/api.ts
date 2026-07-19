@@ -37,10 +37,14 @@ export const ListPlantsResponseItem = zod.object({
   "lastWateredDate": zod.coerce.date().nullish(),
   "lastFertilizedDate": zod.coerce.date().nullish(),
   "lastPrunedDate": zod.coerce.date().nullish(),
+  "lastSprayedDate": zod.coerce.date().nullish(),
+  "lastHarvestedDate": zod.coerce.date().nullish(),
   "healthStatus": zod.string().describe('healthy | moderate | poor | unknown'),
   "wateringIntervalDays": zod.number().nullish(),
   "fertilizingIntervalDays": zod.number().nullish(),
   "pruningIntervalDays": zod.number().nullish(),
+  "sprayingIntervalDays": zod.number().nullish(),
+  "harvestingIntervalDays": zod.number().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -64,7 +68,9 @@ export const CreatePlantBody = zod.object({
   "healthStatus": zod.string().optional(),
   "wateringIntervalDays": zod.number().optional(),
   "fertilizingIntervalDays": zod.number().optional(),
-  "pruningIntervalDays": zod.number().optional()
+  "pruningIntervalDays": zod.number().optional(),
+  "sprayingIntervalDays": zod.number().optional(),
+  "harvestingIntervalDays": zod.number().optional()
 })
 
 export const CreatePlantResponse = zod.object({
@@ -79,10 +85,14 @@ export const CreatePlantResponse = zod.object({
   "lastWateredDate": zod.coerce.date().nullish(),
   "lastFertilizedDate": zod.coerce.date().nullish(),
   "lastPrunedDate": zod.coerce.date().nullish(),
+  "lastSprayedDate": zod.coerce.date().nullish(),
+  "lastHarvestedDate": zod.coerce.date().nullish(),
   "healthStatus": zod.string().describe('healthy | moderate | poor | unknown'),
   "wateringIntervalDays": zod.number().nullish(),
   "fertilizingIntervalDays": zod.number().nullish(),
   "pruningIntervalDays": zod.number().nullish(),
+  "sprayingIntervalDays": zod.number().nullish(),
+  "harvestingIntervalDays": zod.number().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })
@@ -168,10 +178,14 @@ export const UpdatePlantBody = zod.object({
   "lastWateredDate": zod.coerce.date().optional(),
   "lastFertilizedDate": zod.coerce.date().optional(),
   "lastPrunedDate": zod.coerce.date().optional(),
+  "lastSprayedDate": zod.coerce.date().optional(),
+  "lastHarvestedDate": zod.coerce.date().optional(),
   "healthStatus": zod.string().optional(),
   "wateringIntervalDays": zod.number().optional(),
   "fertilizingIntervalDays": zod.number().optional(),
-  "pruningIntervalDays": zod.number().optional()
+  "pruningIntervalDays": zod.number().optional(),
+  "sprayingIntervalDays": zod.number().optional(),
+  "harvestingIntervalDays": zod.number().optional()
 })
 
 export const UpdatePlantResponse = zod.object({
@@ -186,10 +200,14 @@ export const UpdatePlantResponse = zod.object({
   "lastWateredDate": zod.coerce.date().nullish(),
   "lastFertilizedDate": zod.coerce.date().nullish(),
   "lastPrunedDate": zod.coerce.date().nullish(),
+  "lastSprayedDate": zod.coerce.date().nullish(),
+  "lastHarvestedDate": zod.coerce.date().nullish(),
   "healthStatus": zod.string().describe('healthy | moderate | poor | unknown'),
   "wateringIntervalDays": zod.number().nullish(),
   "fertilizingIntervalDays": zod.number().nullish(),
   "pruningIntervalDays": zod.number().nullish(),
+  "sprayingIntervalDays": zod.number().nullish(),
+  "harvestingIntervalDays": zod.number().nullish(),
   "createdAt": zod.coerce.date(),
   "updatedAt": zod.coerce.date()
 })

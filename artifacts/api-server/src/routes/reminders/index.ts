@@ -171,6 +171,8 @@ router.patch("/reminders/:id", async (req, res): Promise<void> => {
     watering: { intervalField: "wateringIntervalDays", dateField: "lastWateredDate", defaultInterval: 3 },
     fertilizing: { intervalField: "fertilizingIntervalDays", dateField: "lastFertilizedDate", defaultInterval: 20 },
     pruning: { intervalField: "pruningIntervalDays", dateField: "lastPrunedDate", defaultInterval: 180 },
+    spraying: { intervalField: "sprayingIntervalDays", dateField: "lastSprayedDate", defaultInterval: 14 },
+    harvesting: { intervalField: "harvestingIntervalDays", dateField: "lastHarvestedDate", defaultInterval: 90 },
   };
   const careConfig = careTypeConfig[existingReminder.type];
 

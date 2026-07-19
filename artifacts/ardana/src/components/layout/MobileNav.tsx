@@ -55,7 +55,7 @@ export function MobileNav() {
               <Menu className="w-6 h-6" />
             </button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-[80vw] sm:w-[350px] p-0 flex flex-col">
+          <SheetContent side={isRTL ? 'left' : 'right'} className="w-[80vw] sm:w-[350px] p-0 flex flex-col">
             {/* User header */}
             <div className="p-6 bg-sidebar text-sidebar-foreground">
               <SheetHeader>

@@ -54,7 +54,7 @@ export function Sidebar() {
 
   return (
     <aside className={cn(
-      "fixed inset-y-0 left-0 z-40 hidden w-64 bg-sidebar border-r border-sidebar-border overflow-y-auto md:flex flex-col"
+      "fixed inset-y-0 start-0 z-40 hidden w-64 bg-sidebar border-e border-sidebar-border overflow-y-auto md:flex flex-col"
     )}>
       {/* Logo */}
       <div className="p-6">

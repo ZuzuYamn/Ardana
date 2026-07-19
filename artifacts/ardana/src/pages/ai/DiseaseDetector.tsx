@@ -67,7 +67,7 @@ function UrgencyBadge({ urgency, t }: { urgency: string; t: (key: string) => str
 
 export default function DiseaseDetector() {
   const { toast } = useToast();
-  const { t, language } = useLanguage();
+  const { t, language, isRTL } = useLanguage();
   const detectMutation = useDetectDisease();
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -105,7 +105,7 @@ export default function DiseaseDetector() {
   const error = detectMutation.error as Error | null;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-8">
+    <div className="max-w-4xl mx-auto space-y-8 pb-8" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Header */}
       <div className="text-center max-w-2xl mx-auto space-y-3">
         <div className="w-16 h-16 bg-destructive/10 rounded-2xl flex items-center justify-center mx-auto">

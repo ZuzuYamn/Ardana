@@ -50,7 +50,7 @@ function ConfidenceBadge({ confidence, t }: { confidence: string; t: (key: strin
 
 export default function PlantIdentifier() {
   const { toast } = useToast();
-  const { t, language } = useLanguage();
+  const { t, language, isRTL } = useLanguage();
   const identifyMutation = useIdentifyPlant();
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -88,7 +88,7 @@ export default function PlantIdentifier() {
   const error = identifyMutation.error as Error | null;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-8">
+    <div className="max-w-4xl mx-auto space-y-8 pb-8" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Header */}
       <div className="text-center max-w-2xl mx-auto space-y-3">
         <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto">
@@ -210,7 +210,7 @@ export default function PlantIdentifier() {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => { if (selectedImage) identifyMutation.mutate({ data: { imageBase64: selectedImage.base64, mimeType: selectedImage.mimeType } }); }}
+                onClick={() => { if (selectedImage) identifyMutation.mutate({ data: { imageBase64: selectedImage.base64, mimeType: selectedImage.mimeType, language } }); }}
                 className="gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/10"
               >
                 <RefreshCw className="w-3.5 h-3.5" /> {t('plant_id.try_again')}

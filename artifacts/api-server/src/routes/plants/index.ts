@@ -33,9 +33,12 @@ const CreatePlantWithAnalysisBody = z.object({
   wateringIntervalDays: z.coerce.number().int().positive().optional(),
   fertilizingIntervalDays: z.coerce.number().int().positive().optional(),
   pruningIntervalDays: z.coerce.number().int().positive().optional(),
+  sprayingIntervalDays: z.coerce.number().int().positive().optional(),
+  harvestingIntervalDays: z.coerce.number().int().positive().optional(),
   photoDataUrl: z.string().optional(),     // base64 data URL of the plant image
   imageBase64: z.string().optional(),      // raw base64 (used for AI if not already analyzed)
   mimeType: z.string().optional(),
+  language: z.string().default("en"),     // user interface language for AI-generated content
   aiIdentification: z.string().optional(), // pre-analyzed JSON string
   aiDiseaseDetection: z.string().optional(),
 });
@@ -44,6 +47,8 @@ const CreatePlantWithAnalysisBody = z.object({
 const DEFAULT_WATERING_INTERVAL_DAYS = 3;
 const DEFAULT_FERTILIZING_INTERVAL_DAYS = 20;
 const DEFAULT_PRUNING_INTERVAL_DAYS = 180;
+const DEFAULT_SPRAYING_INTERVAL_DAYS = 14;
+const DEFAULT_HARVESTING_INTERVAL_DAYS = 90;
 
 // Helper: generate reminders after plant creation
 // Always creates reminders — uses defaults when intervals are not provided.
@@ -51,12 +56,16 @@ async function autoGenerateReminders(
   plantId: number,
   wateringIntervalDays?: number,
   fertilizingIntervalDays?: number,
-  pruningIntervalDays?: number
+  pruningIntervalDays?: number,
+  sprayingIntervalDays?: number,
+  harvestingIntervalDays?: number
 ) {
   const today = new Date().toISOString().split("T")[0];
   const effectiveWatering = wateringIntervalDays ?? DEFAULT_WATERING_INTERVAL_DAYS;
   const effectiveFertilizing = fertilizingIntervalDays ?? DEFAULT_FERTILIZING_INTERVAL_DAYS;
   const effectivePruning = pruningIntervalDays ?? DEFAULT_PRUNING_INTERVAL_DAYS;
+  const effectiveSpraying = sprayingIntervalDays ?? DEFAULT_SPRAYING_INTERVAL_DAYS;
+  const effectiveHarvesting = harvestingIntervalDays ?? DEFAULT_HARVESTING_INTERVAL_DAYS;
 
   const remindersToCreate: Array<{ plantId: number; type: string; scheduledDate: string; notes: string }> = [
     {
@@ -79,6 +88,24 @@ async function autoGenerateReminders(
       type: "pruning",
       scheduledDate: new Date(Date.now() + effectivePruning * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       notes: `Auto-scheduled: prune every ${effectivePruning} day${effectivePruning === 1 ? "" : "s"}.${pruningIntervalDays ? "" : " (default schedule)"}`,
+    });
+  }
+
+  if (sprayingIntervalDays !== undefined && sprayingIntervalDays > 0) {
+    remindersToCreate.push({
+      plantId,
+      type: "spraying",
+      scheduledDate: new Date(Date.now() + effectiveSpraying * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      notes: `Auto-scheduled: spray every ${effectiveSpraying} day${effectiveSpraying === 1 ? "" : "s"}.${sprayingIntervalDays ? "" : " (default schedule)"}`,
+    });
+  }
+
+  if (harvestingIntervalDays !== undefined && harvestingIntervalDays > 0) {
+    remindersToCreate.push({
+      plantId,
+      type: "harvesting",
+      scheduledDate: new Date(Date.now() + effectiveHarvesting * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      notes: `Auto-scheduled: harvest every ${effectiveHarvesting} day${effectiveHarvesting === 1 ? "" : "s"}.${harvestingIntervalDays ? "" : " (default schedule)"}`,
     });
   }
 
@@ -146,7 +173,8 @@ router.post("/plants/with-analysis", async (req, res): Promise<void> => {
   const {
     name, type, species, location, notes, plantedDate, healthStatus,
     wateringIntervalDays, fertilizingIntervalDays, pruningIntervalDays,
-    photoDataUrl, imageBase64, mimeType,
+    sprayingIntervalDays, harvestingIntervalDays,
+    photoDataUrl, imageBase64, mimeType, language,
     aiIdentification: preAnalyzedIdentification,
     aiDiseaseDetection: preAnalyzedDisease,
   } = parsed.data;
@@ -161,11 +189,15 @@ router.post("/plants/with-analysis", async (req, res): Promise<void> => {
     try {
       const IDENTIFY_PROMPT = `You are an expert botanist. Analyze this plant image and identify it.
 Return a valid JSON object (no markdown, no code blocks) with these exact fields:
-{"species":"scientific name or null","commonName":"common name or null","family":"plant family or null","confidence":"high|medium|low","description":"brief description","wateringRequirements":"watering guidance","growingConditions":"soil/temperature/climate","fertilizers":"recommended fertilizers","careRecommendations":"care tips","sunlight":"sunlight requirements","soilType":"soil type and pH","suggestedWateringIntervalDays":number or null,"suggestedFertilizingIntervalDays":number or null,"estimatedAgeYears":number or null,"error":null}`;
+{"species":"scientific name or null","commonName":"common name or null","family":"plant family or null","confidence":"high|medium|low","description":"brief description","wateringRequirements":"watering guidance","growingConditions":"soil/temperature/climate","fertilizers":"recommended fertilizers","careRecommendations":"care tips","sunlight":"sunlight requirements","soilType":"soil type and pH","suggestedWateringIntervalDays":number or null,"suggestedFertilizingIntervalDays":number or null,"estimatedAgeYears":number or null,"error":null}
+
+Respond in the following language: ${language}.`;
 
       const DISEASE_PROMPT = `You are an expert plant pathologist. Analyze this plant image for health.
 Return a valid JSON object (no markdown, no code blocks) with these exact fields:
-{"isHealthy":true or false,"diseaseName":"disease name or null","confidence":"high|medium|low","description":"what you observe","causes":"causes or null","symptoms":"visible symptoms","treatments":"recommended treatments","products":"specific products","preventiveMeasures":"prevention tips","urgency":"immediate|soon|low|none","error":null}`;
+{"isHealthy":true or false,"diseaseName":"disease name or null","confidence":"high|medium|low","description":"what you observe","causes":"causes or null","symptoms":"visible symptoms","treatments":"recommended treatments","products":"specific products","preventiveMeasures":"prevention tips","urgency":"immediate|soon|low|none","error":null}
+
+Respond in the following language: ${language}.`;
 
       const strip = (s: string) => s.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
 
@@ -207,6 +239,8 @@ Return a valid JSON object (no markdown, no code blocks) with these exact fields
   const effectiveWateringInterval = wateringIntervalDays ?? DEFAULT_WATERING_INTERVAL_DAYS;
   const effectiveFertilizingInterval = fertilizingIntervalDays ?? DEFAULT_FERTILIZING_INTERVAL_DAYS;
   const effectivePruningInterval = pruningIntervalDays ?? DEFAULT_PRUNING_INTERVAL_DAYS;
+  const effectiveSprayingInterval = sprayingIntervalDays ?? DEFAULT_SPRAYING_INTERVAL_DAYS;
+  const effectiveHarvestingInterval = harvestingIntervalDays ?? DEFAULT_HARVESTING_INTERVAL_DAYS;
 
   const [plant] = await db
     .insert(plantsTable)
@@ -222,6 +256,8 @@ Return a valid JSON object (no markdown, no code blocks) with these exact fields
       wateringIntervalDays: effectiveWateringInterval,
       fertilizingIntervalDays: effectiveFertilizingInterval,
       pruningIntervalDays: effectivePruningInterval,
+      sprayingIntervalDays: effectiveSprayingInterval,
+      harvestingIntervalDays: effectiveHarvestingInterval,
       photoUrl,
       aiIdentification,
       aiDiseaseDetection,
@@ -229,7 +265,7 @@ Return a valid JSON object (no markdown, no code blocks) with these exact fields
     .returning();
 
   // Auto-generate reminders based on care schedule
-  const remindersCreated = await autoGenerateReminders(plant.id, effectiveWateringInterval, effectiveFertilizingInterval, effectivePruningInterval);
+  const remindersCreated = await autoGenerateReminders(plant.id, effectiveWateringInterval, effectiveFertilizingInterval, effectivePruningInterval, effectiveSprayingInterval, effectiveHarvestingInterval);
 
   res.status(201).json({ ...plant, remindersCreated });
 });
@@ -280,6 +316,8 @@ router.post("/plants", async (req, res): Promise<void> => {
     wateringIntervalDays: z.coerce.number().int().positive().optional(),
     fertilizingIntervalDays: z.coerce.number().int().positive().optional(),
     pruningIntervalDays: z.coerce.number().int().positive().optional(),
+    sprayingIntervalDays: z.coerce.number().int().positive().optional(),
+    harvestingIntervalDays: z.coerce.number().int().positive().optional(),
     photoUrl: z.string().optional(),
   });
 
@@ -292,6 +330,8 @@ router.post("/plants", async (req, res): Promise<void> => {
   const effectiveWateringInterval = parsed.data.wateringIntervalDays ?? DEFAULT_WATERING_INTERVAL_DAYS;
   const effectiveFertilizingInterval = parsed.data.fertilizingIntervalDays ?? DEFAULT_FERTILIZING_INTERVAL_DAYS;
   const effectivePruningInterval = parsed.data.pruningIntervalDays ?? DEFAULT_PRUNING_INTERVAL_DAYS;
+  const effectiveSprayingInterval = parsed.data.sprayingIntervalDays ?? DEFAULT_SPRAYING_INTERVAL_DAYS;
+  const effectiveHarvestingInterval = parsed.data.harvestingIntervalDays ?? DEFAULT_HARVESTING_INTERVAL_DAYS;
 
   const [plant] = await db.insert(plantsTable).values({
     ...parsed.data,
@@ -299,9 +339,11 @@ router.post("/plants", async (req, res): Promise<void> => {
     wateringIntervalDays: effectiveWateringInterval,
     fertilizingIntervalDays: effectiveFertilizingInterval,
     pruningIntervalDays: effectivePruningInterval,
+    sprayingIntervalDays: effectiveSprayingInterval,
+    harvestingIntervalDays: effectiveHarvestingInterval,
   }).returning();
 
-  await autoGenerateReminders(plant.id, effectiveWateringInterval, effectiveFertilizingInterval, effectivePruningInterval);
+  await autoGenerateReminders(plant.id, effectiveWateringInterval, effectiveFertilizingInterval, effectivePruningInterval, effectiveSprayingInterval, effectiveHarvestingInterval);
 
   res.status(201).json(plant);
 });
@@ -348,6 +390,8 @@ const UpdatePlantWithAnalysisBody = z.object({
   wateringIntervalDays: z.coerce.number().int().positive().nullish(),
   fertilizingIntervalDays: z.coerce.number().int().positive().nullish(),
   pruningIntervalDays: z.coerce.number().int().positive().nullish(),
+  sprayingIntervalDays: z.coerce.number().int().positive().nullish(),
+  harvestingIntervalDays: z.coerce.number().int().positive().nullish(),
   photoDataUrl: z.string().nullish(),
   aiIdentification: z.string().nullish(),
   aiDiseaseDetection: z.string().nullish(),

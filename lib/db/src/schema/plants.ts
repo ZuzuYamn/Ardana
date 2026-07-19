@@ -16,10 +16,14 @@ export const plantsTable = pgTable("plants", {
   lastWateredDate: date("last_watered_date", { mode: "string" }),
   lastFertilizedDate: date("last_fertilized_date", { mode: "string" }),
   lastPrunedDate: date("last_pruned_date", { mode: "string" }),
+  lastSprayedDate: date("last_sprayed_date", { mode: "string" }),
+  lastHarvestedDate: date("last_harvested_date", { mode: "string" }),
   healthStatus: text("health_status").notNull().default("unknown"), // healthy | moderate | poor | unknown
   wateringIntervalDays: integer("watering_interval_days"),
   fertilizingIntervalDays: integer("fertilizing_interval_days"),
   pruningIntervalDays: integer("pruning_interval_days"),
+  sprayingIntervalDays: integer("spraying_interval_days"),
+  harvestingIntervalDays: integer("harvesting_interval_days"),
   aiIdentification: text("ai_identification"),   // JSON string of plant identification result
   aiDiseaseDetection: text("ai_disease_detection"), // JSON string of disease detection result
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

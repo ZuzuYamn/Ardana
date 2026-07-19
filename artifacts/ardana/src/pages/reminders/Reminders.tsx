@@ -13,7 +13,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { format, isPast, isToday } from 'date-fns';
+import { format, isPast, isToday, type Locale } from 'date-fns';
+import { enUS, ar, fr, es, pt } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
@@ -31,6 +32,19 @@ import * as z from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLanguage } from '@/lib/contexts/LanguageContext';
 import { Badge } from '@/components/ui/badge';
+import type { Language } from '@/lib/contexts/LanguageContext';
+
+const dateLocales: Record<Language, Locale> = {
+  en: enUS,
+  ar,
+  fr,
+  es,
+  pt,
+};
+
+function dateFnsLocale(lang: Language) {
+  return dateLocales[lang] ?? enUS;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -340,7 +354,7 @@ function SmartAlertsPanel() {
                   <MapPin className="w-6 h-6 text-muted-foreground" />
                 </div>
                 <p className="text-sm text-muted-foreground max-w-xs">
-                  Set your location to get weather-aware watering and care recommendations for your plants.
+                  {t('reminders.location_prompt')}
                 </p>
                 <div className="flex flex-col sm:flex-row items-center gap-2 mt-1 w-full sm:w-auto">
                   <Button size="sm" variant="outline" onClick={() => setShowSearch(true)} className="gap-2 w-full sm:w-auto">
@@ -382,7 +396,7 @@ function SmartAlertsPanel() {
                   <div className="flex gap-2 mb-1">
                     {data.weatherSummary.map((d) => (
                       <div key={d.date} className="flex-1 rounded-xl border bg-muted/40 p-2.5 text-center text-xs">
-                        <p className="font-medium text-foreground">{new Date(d.date).toLocaleDateString([], { weekday: 'short' })}</p>
+                        <p className="font-medium text-foreground">{format(new Date(d.date), 'EEE', { locale: dateFnsLocale(language) })}</p>
                         <p className="text-muted-foreground mt-0.5">{d.maxTemp}° / {d.minTemp}°</p>
                         {d.chanceOfRain > 20 && (
                           <p className="text-blue-500 flex items-center justify-center gap-0.5 mt-0.5">
@@ -418,7 +432,7 @@ function SmartAlertsPanel() {
                         <p className="text-sm opacity-90 leading-relaxed">{alert.message}</p>
                         {alert.suggestedDate && (
                           <p className="text-xs mt-1.5 font-medium opacity-75 flex items-center gap-1">
-                            <Calendar className="w-3 h-3" /> {t('reminders.suggested_date_label')}: {format(new Date(alert.suggestedDate), 'EEE, MMM d')}
+                            <Calendar className="w-3 h-3" /> {t('reminders.suggested_date_label')}: {format(new Date(alert.suggestedDate), 'EEE, MMM d', { locale: dateFnsLocale(language) })}
                           </p>
                         )}
                       </div>
@@ -504,7 +518,11 @@ export default function Reminders() {
                 ? plant.fertilizingIntervalDays
                 : editingReminder.type === 'pruning'
                   ? plant.pruningIntervalDays
-                  : null)
+                  : editingReminder.type === 'spraying'
+                    ? plant.sprayingIntervalDays
+                    : editingReminder.type === 'harvesting'
+                      ? plant.harvestingIntervalDays
+                      : null)
           : null;
       form.reset({
         plantId: editingReminder.plantId,
@@ -803,13 +821,27 @@ export default function Reminders() {
                 {reminders.map(reminder => {
                   const date = new Date(reminder.scheduledDate);
                   const isOverdue = !reminder.completed && isPast(date) && !isToday(date);
+                  const plant = plants?.find(p => p.id === reminder.plantId);
+                  const effectiveRecurrenceDays = reminder.isCustom
+                    ? reminder.recurrenceDays
+                    : (reminder.type === 'watering'
+                        ? plant?.wateringIntervalDays
+                        : reminder.type === 'fertilizing'
+                          ? plant?.fertilizingIntervalDays
+                          : reminder.type === 'pruning'
+                            ? plant?.pruningIntervalDays
+                            : reminder.type === 'spraying'
+                              ? plant?.sprayingIntervalDays
+                              : reminder.type === 'harvesting'
+                                ? plant?.harvestingIntervalDays
+                                : null);
 
                   return (
                     <motion.div
                       layout
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
+                      exit={{ opacity: 0 }}
                       transition={{ duration: 0.2 }}
                       key={reminder.id}
                     >
@@ -819,7 +851,7 @@ export default function Reminders() {
                         isOverdue && "border-destructive/50 bg-destructive/5"
                       )}>
                         <CardContent className="p-4 sm:p-6 flex items-center gap-4">
-                          <button 
+                          <button
                             onClick={() => handleToggleComplete(reminder.id, reminder.completed, reminder.scheduledDate)}
                             className="group shrink-0"
                           >
@@ -836,7 +868,7 @@ export default function Reminders() {
                                 <h3 className="font-bold text-lg text-foreground truncate">{reminder.plantName}</h3>
                                 {!reminder.isCustom && (
                                   <Badge variant="outline" className="text-xs font-normal shrink-0">
-                                    {t('reminders.ai_generated')}
+                                    {t('reminders.auto_scheduled')}
                                   </Badge>
                                 )}
                               </div>
@@ -852,9 +884,9 @@ export default function Reminders() {
                             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mb-2">
                               {getIconForType(reminder.type)}
                               <span className="capitalize">{t(`reminders.type_${reminder.type}`)}</span>
-                              {(reminder.recurrenceDays && reminder.recurrenceDays > 0) && (
+                              {(effectiveRecurrenceDays && effectiveRecurrenceDays > 0) && (
                                 <Badge variant="secondary" className="text-xs font-normal">
-                                  {t('reminders.recurs_every', { days: String(reminder.recurrenceDays) })}
+                                  {t('reminders.recurs_every', { days: String(effectiveRecurrenceDays) })}
                                 </Badge>
                               )}
                             </div>

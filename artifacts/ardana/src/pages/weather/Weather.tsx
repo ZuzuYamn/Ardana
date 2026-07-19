@@ -23,7 +23,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/lib/contexts/LanguageContext";
+import type { Language } from "@/lib/contexts/LanguageContext";
 import { useToast } from "@/hooks/use-toast";
+import { format, type Locale } from "date-fns";
+import { enUS, ar, fr, es, pt } from "date-fns/locale";
 import {
   getCache,
   setCache,
@@ -61,13 +64,25 @@ type ChartMetric = "temperature" | "precipitation" | "humidity" | "windSpeed" | 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const API_BASE = (import.meta.env.BASE_URL as string).replace(/\/$/, "");
 
+const dateLocales: Record<Language, Locale> = {
+  en: enUS,
+  ar,
+  fr,
+  es,
+  pt,
+};
+
+function dateFnsLocale(lang: Language) {
+  return dateLocales[lang] ?? enUS;
+}
+
 function formatHour(timeStr: string) {
   const d = new Date(timeStr);
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-function formatDay(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+function formatDay(dateStr: string, lang: Language) {
+  return format(new Date(dateStr), "EEE, MMM d", { locale: dateFnsLocale(lang) });
 }
 
 function uvLabel(uv: number) {
@@ -772,7 +787,7 @@ export default function Weather() {
                     <div className="flex items-center gap-3">
                       <div className="w-20 shrink-0">
                         <p className="font-semibold text-sm">
-                           {i === 0 ? t("weather.day_today") : i === 1 ? t("weather.day_tomorrow") : formatDay(day.date)}
+                           {i === 0 ? t("weather.day_today") : i === 1 ? t("weather.day_tomorrow") : formatDay(day.date, language)}
                         </p>
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
                           <Moon className="w-3 h-3" /> {day.moonPhase}

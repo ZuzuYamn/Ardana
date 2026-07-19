@@ -1,50 +1,75 @@
 # Ardana — Smart Plant Care
 
-A plant management and reminder application with AI-powered insights and weather integration.
+A full-stack smart plant care web application with AI-powered plant identification, disease detection, weather-aware care reminders, and an AI farming assistant.
 
 ## Stack
 
-- **Frontend**: React + Vite + Tailwind CSS + TanStack Query + Radix UI (`artifacts/ardana`)
-- **Backend**: Node.js + Express v5 + TypeScript (`artifacts/api-server`)
-- **Database**: PostgreSQL via Drizzle ORM (`lib/db`)
-- **AI**: Google Gemini with 10-key rotation pool (`GEMINI_API_KEY` … `GEMINI_API_KEY_10`)
+- **Frontend**: React + Vite, TypeScript, Tailwind CSS, Radix UI, Framer Motion, TanStack Query, Wouter, Leaflet
+- **Backend**: Node.js + Express, TypeScript, esbuild
+- **Database**: PostgreSQL via Drizzle ORM
+- **AI**: Google Gemini (10-key pool with rotation)
 - **Weather**: WeatherAPI + OpenWeatherMap
 
-## How to run
+## Monorepo structure
 
-Both services start automatically via Replit workflows:
+```
+artifacts/
+  ardana/         # React frontend (served at /)
+  api-server/     # Express API backend (served at /api)
+  mockup-sandbox/ # UI prototyping sandbox
+lib/
+  db/             # Drizzle schema + migrations
+  api-spec/       # OpenAPI spec
+  api-zod/        # Zod validation schemas
+  api-client-react/ # Generated TanStack Query hooks
+```
 
-| Workflow | Command |
-|---|---|
-| `artifacts/api-server: API Server` | `PORT=8080 pnpm --filter @workspace/api-server run dev` |
-| `artifacts/ardana: web` | `PORT=5173 BASE_PATH=/ pnpm --filter @workspace/ardana run dev` |
+## Running the project
 
-## Database
+Install dependencies (first time only):
+```bash
+pnpm install
+```
 
-Schema is managed with Drizzle ORM. To push schema changes:
-
+Push database schema:
 ```bash
 pnpm --filter @workspace/db run push
 ```
 
-## Required secrets
+Start the API server:
+```bash
+PORT=8080 pnpm --filter @workspace/api-server run dev
+```
 
-All secrets are stored in Replit Secrets:
+Start the frontend (in a separate terminal):
+```bash
+PORT=5173 BASE_PATH=/ pnpm --filter @workspace/ardana run dev
+```
 
-| Secret | Purpose |
-|---|---|
-| `DATABASE_URL` | PostgreSQL connection (Replit-managed) |
-| `SESSION_SECRET` | Express session signing |
-| `GEMINI_API_KEY` … `GEMINI_API_KEY_10` | Gemini AI key rotation pool |
-| `WEATHERAPI_KEY` | WeatherAPI provider |
-| `OPENWEATHERMAP_API_KEY` | OpenWeatherMap provider |
+The app is available at `http://localhost:5173/`.
 
-## Reminder completion behavior
+## Required secrets (set in Replit Secrets)
 
-- Reminders can only be marked as completed if their `scheduledDate` is today.
-- Completing a recurring reminder (watering, fertilizing, pruning) automatically schedules the next one based on the plant's care interval.
-- Undoing a completed reminder deletes the auto-generated future reminder and recalculates the plant's last-care date.
+| Secret | Description |
+|--------|-------------|
+| `GEMINI_API_KEY` | Primary Gemini API key |
+| `GEMINI_API_KEY_2` … `GEMINI_API_KEY_10` | Additional Gemini keys for rotation |
+| `WEATHERAPI_KEY` | WeatherAPI.com key |
+| `OPENWEATHERMAP_API_KEY` | OpenWeatherMap key |
+| `SESSION_SECRET` | Express session signing secret |
+
+`DATABASE_URL` is provided automatically by Replit.
+
+## Database
+
+Schema is managed by Drizzle ORM. After schema changes, run:
+```bash
+pnpm --filter @workspace/db run push
+```
+
+The `user_sessions` table (for connect-pg-simple) must be created manually — it is not part of the Drizzle schema. It was already created during setup.
 
 ## User preferences
 
-- Uses 10 Gemini API keys in rotation (keys named `GEMINI_API_KEY` through `GEMINI_API_KEY_10`)
+- Uses 10 Gemini API keys with automatic rotation and per-feature concurrency limits
+- Uses 2 weather providers (WeatherAPI + OpenWeatherMap)

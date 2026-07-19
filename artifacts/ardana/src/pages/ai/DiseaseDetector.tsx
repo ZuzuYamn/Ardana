@@ -67,7 +67,7 @@ function UrgencyBadge({ urgency, t }: { urgency: string; t: (key: string) => str
 
 export default function DiseaseDetector() {
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const detectMutation = useDetectDisease();
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -88,7 +88,7 @@ export default function DiseaseDetector() {
     try {
       const { base64, mimeType, previewUrl } = await compressImage(file);
       setSelectedImage(previewUrl);
-      detectMutation.mutate({ data: { imageBase64: base64, mimeType } });
+      detectMutation.mutate({ data: { imageBase64: base64, mimeType, language } });
     } catch {
       toast({ title: t('disease.image_error_title'), description: t('disease.image_error_desc'), variant: 'destructive' });
     }

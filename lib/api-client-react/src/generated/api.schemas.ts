@@ -53,7 +53,18 @@ export interface Reminder {
   /** watering | fertilizing | pruning | spraying | harvesting | other */
   type: string;
   scheduledDate: string;
+  /**
+     * HH:MM time string, e.g. "09:00"
+     * @nullable
+     */
+  scheduledTime: string | null;
   completed: boolean;
+  isCustom: boolean;
+  /**
+     * Interval in days for custom recurring reminders; null means does not repeat
+     * @nullable
+     */
+  recurrenceDays: number | null;
   /** @nullable */
   notes?: string | null;
   createdAt: string;
@@ -128,12 +139,20 @@ export interface ReminderInput {
   plantId: number;
   type: string;
   scheduledDate: string;
+  /** HH:MM time string, e.g. "09:00" */
+  scheduledTime?: string;
+  /** Interval in days for recurring reminders; omit for one-time */
+  recurrenceDays?: number;
   notes?: string;
 }
 
 export interface ReminderUpdate {
   type?: string;
   scheduledDate?: string;
+  /** HH:MM time string, e.g. "09:00" */
+  scheduledTime?: string;
+  /** Interval in days for custom recurring reminders. For AI-generated care reminders (watering/fertilizing/pruning), this updates the plant's care interval instead. */
+  recurrenceDays?: number;
   completed?: boolean;
   notes?: string;
 }
@@ -162,6 +181,8 @@ export interface PlantImageInput {
   imageBase64: string;
   /** Image MIME type, e.g. image/jpeg */
   mimeType: string;
+  /** User interface language for the AI response (e.g. en, ar, fr, es, pt) */
+  language?: string;
 }
 
 export interface PlantIdentificationResult {
@@ -220,33 +241,59 @@ export interface WeatherCurrent {
   feelsLike: number;
   humidity: number;
   windSpeed: number;
+  windDir: string;
+  windDegree: number;
+  windGust: number;
   weatherCode: number;
   weatherDescription: string;
+  weatherIcon: string;
   isDay: boolean;
   precipitation: number;
+  pressure: number;
+  visibility: number;
+  cloudCover: number;
+  uvIndex: number;
+  airQualityIndex: number;
 }
 
 export interface WeatherHourly {
   time: string;
   temperature: number;
+  feelsLike: number;
   precipitation: number;
+  chanceOfRain: number;
   weatherCode: number;
+  weatherDescription: string;
   humidity: number;
+  windSpeed: number;
+  windDir: string;
+  uvIndex: number;
+  cloudCover: number;
 }
 
 export interface WeatherDaily {
   date: string;
   maxTemp: number;
   minTemp: number;
+  avgHumidity: number;
   precipitation: number;
+  chanceOfRain: number;
+  maxWindSpeed: number;
   weatherCode: number;
   weatherDescription: string;
+  weatherIcon: string;
   sunrise: string;
   sunset: string;
+  moonPhase: string;
+  uvIndex: number;
+  hourly: WeatherHourly[];
 }
 
 export interface WeatherData {
   locationName: string;
+  lat: number;
+  lon: number;
+  timezone?: string;
   current: WeatherCurrent;
   hourly: WeatherHourly[];
   daily: WeatherDaily[];
@@ -273,5 +320,9 @@ export type GetWeatherParams = {
 lat: number;
 lon: number;
 locationName?: string;
+/**
+ * User interface language for localized weather descriptions
+ */
+language?: string;
 };
 

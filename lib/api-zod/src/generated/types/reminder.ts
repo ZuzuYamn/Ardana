@@ -13,7 +13,18 @@ export interface Reminder {
   /** watering | fertilizing | pruning | spraying | harvesting | other */
   type: string;
   scheduledDate: Date;
+  /**
+     * HH:MM time string, e.g. "09:00"
+     * @nullable
+     */
+  scheduledTime: string | null;
   completed: boolean;
+  isCustom: boolean;
+  /**
+     * Interval in days for custom recurring reminders; null means does not repeat
+     * @nullable
+     */
+  recurrenceDays: number | null;
   /** @nullable */
   notes?: string | null;
   createdAt: Date;

@@ -339,6 +339,11 @@ paths:
           in: query
           schema:
             type: string
+        - name: language
+          in: query
+          schema:
+            type: string
+            description: User interface language for localized weather descriptions
       responses:
         "200":
           description: Weather data
@@ -557,8 +562,17 @@ components:
         scheduledDate:
           type: string
           format: date
+        scheduledTime:
+          type: ["string", "null"]
+          description: HH:MM time string, e.g. "09:00"
         completed:
           type: boolean
+        isCustom:
+          type: boolean
+          default: false
+        recurrenceDays:
+          type: ["integer", "null"]
+          description: Interval in days for custom recurring reminders; null means does not repeat
         notes:
           type: ["string", "null"]
         createdAt:
@@ -570,7 +584,10 @@ components:
         - plantName
         - type
         - scheduledDate
+        - scheduledTime
         - completed
+        - isCustom
+        - recurrenceDays
         - createdAt
 
     ReminderInput:
@@ -583,6 +600,12 @@ components:
         scheduledDate:
           type: string
           format: date
+        scheduledTime:
+          type: string
+          description: HH:MM time string, e.g. "09:00"
+        recurrenceDays:
+          type: integer
+          description: Interval in days for recurring reminders; omit for one-time
         notes:
           type: string
       required:
@@ -598,6 +621,12 @@ components:
         scheduledDate:
           type: string
           format: date
+        scheduledTime:
+          type: string
+          description: HH:MM time string, e.g. "09:00"
+        recurrenceDays:
+          type: integer
+          description: Interval in days for custom recurring reminders. For AI-generated care reminders (watering/fertilizing/pruning), this updates the plant's care interval instead.
         completed:
           type: boolean
         notes:
@@ -651,6 +680,10 @@ components:
         mimeType:
           type: string
           description: Image MIME type, e.g. image/jpeg
+        language:
+          type: string
+          description: User interface language for the AI response (e.g. en, ar, fr, es, pt)
+          default: en
       required:
         - imageBase64
         - mimeType
@@ -739,6 +772,12 @@ components:
       properties:
         locationName:
           type: string
+        lat:
+          type: number
+        lon:
+          type: number
+        timezone:
+          type: string
         current:
           $ref: "#/components/schemas/WeatherCurrent"
         hourly:
@@ -754,6 +793,8 @@ components:
           description: AI-generated care recommendation based on weather
       required:
         - locationName
+        - lat
+        - lon
         - current
         - hourly
         - daily
@@ -770,23 +811,50 @@ components:
           type: integer
         windSpeed:
           type: number
+        windDir:
+          type: string
+        windDegree:
+          type: integer
+        windGust:
+          type: number
         weatherCode:
           type: integer
         weatherDescription:
+          type: string
+        weatherIcon:
           type: string
         isDay:
           type: boolean
         precipitation:
           type: number
+        pressure:
+          type: number
+        visibility:
+          type: number
+        cloudCover:
+          type: integer
+        uvIndex:
+          type: number
+        airQualityIndex:
+          type: integer
       required:
         - temperature
         - feelsLike
         - humidity
         - windSpeed
+        - windDir
+        - windDegree
+        - windGust
         - weatherCode
         - weatherDescription
+        - weatherIcon
         - isDay
         - precipitation
+        - pressure
+        - visibility
+        - cloudCover
+        - uvIndex
+        - airQualityIndex
 
     WeatherHourly:
       type: object
@@ -795,18 +863,39 @@ components:
           type: string
         temperature:
           type: number
+        feelsLike:
+          type: number
         precipitation:
+          type: number
+        chanceOfRain:
           type: number
         weatherCode:
           type: integer
+        weatherDescription:
+          type: string
         humidity:
+          type: integer
+        windSpeed:
+          type: number
+        windDir:
+          type: string
+        uvIndex:
+          type: number
+        cloudCover:
           type: integer
       required:
         - time
         - temperature
+        - feelsLike
         - precipitation
+        - chanceOfRain
         - weatherCode
+        - weatherDescription
         - humidity
+        - windSpeed
+        - windDir
+        - uvIndex
+        - cloudCover
 
     WeatherDaily:
       type: object
@@ -817,22 +906,45 @@ components:
           type: number
         minTemp:
           type: number
+        avgHumidity:
+          type: number
         precipitation:
+          type: number
+        chanceOfRain:
+          type: number
+        maxWindSpeed:
           type: number
         weatherCode:
           type: integer
         weatherDescription:
           type: string
+        weatherIcon:
+          type: string
         sunrise:
           type: string
         sunset:
           type: string
+        moonPhase:
+          type: string
+        uvIndex:
+          type: number
+        hourly:
+          type: array
+          items:
+            $ref: "#/components/schemas/WeatherHourly"
       required:
         - date
         - maxTemp
         - minTemp
+        - avgHumidity
         - precipitation
+        - chanceOfRain
+        - maxWindSpeed
         - weatherCode
         - weatherDescription
+        - weatherIcon
         - sunrise
         - sunset
+        - moonPhase
+        - uvIndex
+        - hourly

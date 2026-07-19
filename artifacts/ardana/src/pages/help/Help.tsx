@@ -103,7 +103,7 @@ function SupportMarkdown({ text }: { text: string }) {
 // parent ContactSupportSection, consistent with the other sections.
 
 function SupportChat() {
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
   const SUPPORT_SUGGESTIONS = [
     t('help.support_sugg_1'),
     t('help.support_sugg_2'),
@@ -194,7 +194,7 @@ function SupportChat() {
                 <button
                   key={s}
                   onClick={() => sendMessage(s, messages)}
-                  className="text-left text-xs px-3 py-2 rounded-lg border border-border bg-muted/40 hover:bg-muted hover:border-primary/30 transition-all text-muted-foreground hover:text-foreground"
+                  className="text-start text-xs px-3 py-2 rounded-lg border border-border bg-muted/40 hover:bg-muted hover:border-primary/30 transition-all text-muted-foreground hover:text-foreground"
                 >
                   {s}
                 </button>
@@ -211,7 +211,7 @@ function SupportChat() {
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.18 }}
-                  className={cn('flex gap-2', isUser ? 'flex-row-reverse' : 'flex-row')}
+                  className={cn('flex gap-2', isUser ? (isRTL ? 'flex-row' : 'flex-row-reverse') : (isRTL ? 'flex-row-reverse' : 'flex-row'))}
                 >
                   <div className={cn(
                     'w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5',
@@ -221,10 +221,10 @@ function SupportChat() {
                   </div>
                   <div className={cn('max-w-[80%] rounded-2xl px-3 py-2 text-sm shadow-sm',
                     isUser
-                      ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                      ? `bg-primary text-primary-foreground ${isRTL ? 'rounded-tl-sm' : 'rounded-tr-sm'}`
                       : msg.error
-                      ? 'bg-destructive/10 border border-destructive/20 text-destructive rounded-tl-sm'
-                      : 'bg-muted border border-border text-foreground rounded-tl-sm',
+                      ? `bg-destructive/10 border border-destructive/20 text-destructive ${isRTL ? 'rounded-tr-sm' : 'rounded-tl-sm'}`
+                      : `bg-muted border border-border text-foreground ${isRTL ? 'rounded-tr-sm' : 'rounded-tl-sm'}`,
                   )}>
                     {msg.isLoading ? (
                       <div className="flex items-center gap-1.5 text-muted-foreground py-0.5">
@@ -309,13 +309,13 @@ const GUIDE_STEPS = [
 ];
 
 function GettingStartedGuide({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
 
   return (
     <div className="space-y-4">
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-3 group text-left"
+        className="w-full flex items-center gap-3 group text-start"
       >
         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
           <Book className="w-5 h-5 text-primary" />
@@ -343,7 +343,7 @@ function GettingStartedGuide({ open, onToggle }: { open: boolean; onToggle: () =
               {GUIDE_STEPS.map(({ icon: Icon, titleKey, descKey }, index) => (
                 <motion.div
                   key={titleKey}
-                  initial={{ opacity: 0, x: -8 }}
+                  initial={{ opacity: 0, x: isRTL ? 8 : -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.2, delay: index * 0.06 }}
                   className="flex items-start gap-4 p-5 hover:bg-muted/30 transition-colors"
@@ -401,13 +401,13 @@ const AI_TUTORIAL_STEPS = (t: (key: string) => string) => [
 ];
 
 function AITutorialSection({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
   const steps = AI_TUTORIAL_STEPS(t);
   return (
     <div className="space-y-4">
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-3 group text-left"
+        className="w-full flex items-center gap-3 group text-start"
       >
         <div className="w-10 h-10 rounded-xl bg-secondary/20 flex items-center justify-center flex-shrink-0 group-hover:bg-secondary/40 transition-colors">
           <FileText className="w-5 h-5 text-secondary-foreground" />
@@ -435,7 +435,7 @@ function AITutorialSection({ open, onToggle }: { open: boolean; onToggle: () => 
               {steps.map(({ icon: Icon, title, desc }, index) => (
                 <motion.div
                   key={title}
-                  initial={{ opacity: 0, x: -8 }}
+                  initial={{ opacity: 0, x: isRTL ? 8 : -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.2, delay: index * 0.06 }}
                   className="flex items-start gap-4 p-5 hover:bg-muted/30 transition-colors"
@@ -462,13 +462,13 @@ function AITutorialSection({ open, onToggle }: { open: boolean; onToggle: () => 
 // When expanded, the full chat is shown immediately with no intermediate state.
 
 function ContactSupportSection({ open, onToggle }: { open: boolean; onToggle: () => void }) {
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
 
   return (
     <div className="space-y-4">
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-3 group text-left"
+        className="w-full flex items-center gap-3 group text-start"
       >
         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
           <MessageCircle className="w-5 h-5 text-primary" />
@@ -503,7 +503,7 @@ function ContactSupportSection({ open, onToggle }: { open: boolean; onToggle: ()
 // ─── Main Help Page ───────────────────────────────────────────────────────────
 
 export default function Help() {
-  const { t } = useLanguage();
+  const { t, isRTL } = useLanguage();
 
   // All sections start collapsed
   const [guideOpen, setGuideOpen]       = useState(false);
@@ -541,7 +541,7 @@ export default function Help() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-12">
+    <div className="max-w-4xl mx-auto space-y-8 pb-12" dir={isRTL ? 'rtl' : 'ltr'}>
       {/* Hero */}
       <div className="text-center py-8">
         <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -576,7 +576,7 @@ export default function Help() {
           <button
             key={title}
             onClick={onClick}
-            className="text-left rounded-2xl border border-border bg-card shadow-sm hover:shadow-md hover:border-primary/30 transition-all group p-6"
+            className="text-start rounded-2xl border border-border bg-card shadow-sm hover:shadow-md hover:border-primary/30 transition-all group p-6"
           >
             <div className="text-center">
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3 group-hover:bg-primary/20 transition-colors">
@@ -615,7 +615,7 @@ export default function Help() {
           className="w-full bg-card border rounded-2xl px-6"
         >
           <AccordionItem value="item-1" className="border-b">
-            <AccordionTrigger className="hover:no-underline font-semibold text-left">
+            <AccordionTrigger className="hover:no-underline font-semibold text-start">
               {t('help.faq_1_q')}
             </AccordionTrigger>
             <AccordionContent className="text-muted-foreground leading-relaxed">
@@ -624,7 +624,7 @@ export default function Help() {
           </AccordionItem>
 
           <AccordionItem value="item-2" className="border-b">
-            <AccordionTrigger className="hover:no-underline font-semibold text-left">
+            <AccordionTrigger className="hover:no-underline font-semibold text-start">
               {t('help.faq_2_q')}
             </AccordionTrigger>
             <AccordionContent className="text-muted-foreground leading-relaxed">
@@ -633,7 +633,7 @@ export default function Help() {
           </AccordionItem>
 
           <AccordionItem value="item-3" className="border-b">
-            <AccordionTrigger className="hover:no-underline font-semibold text-left">
+            <AccordionTrigger className="hover:no-underline font-semibold text-start">
               {t('help.faq_3_q')}
             </AccordionTrigger>
             <AccordionContent className="text-muted-foreground leading-relaxed">
@@ -642,7 +642,7 @@ export default function Help() {
           </AccordionItem>
 
           <AccordionItem value="item-4" className="border-b">
-            <AccordionTrigger className="hover:no-underline font-semibold text-left">
+            <AccordionTrigger className="hover:no-underline font-semibold text-start">
               {t('help.faq_4_q')}
             </AccordionTrigger>
             <AccordionContent className="text-muted-foreground leading-relaxed">
@@ -651,7 +651,7 @@ export default function Help() {
           </AccordionItem>
 
           <AccordionItem value="item-5" className="border-none">
-            <AccordionTrigger className="hover:no-underline font-semibold text-left">
+            <AccordionTrigger className="hover:no-underline font-semibold text-start">
               {t('help.faq_5_q')}
             </AccordionTrigger>
             <AccordionContent className="text-muted-foreground leading-relaxed">

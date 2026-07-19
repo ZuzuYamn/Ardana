@@ -145,7 +145,7 @@ router.post("/plants/with-analysis", async (req, res): Promise<void> => {
   const userId = req.session.userId!;
   const {
     name, type, species, location, notes, plantedDate, healthStatus,
-    wateringIntervalDays, fertilizingIntervalDays,
+    wateringIntervalDays, fertilizingIntervalDays, pruningIntervalDays,
     photoDataUrl, imageBase64, mimeType,
     aiIdentification: preAnalyzedIdentification,
     aiDiseaseDetection: preAnalyzedDisease,
@@ -279,6 +279,7 @@ router.post("/plants", async (req, res): Promise<void> => {
     healthStatus: z.string().default("unknown"),
     wateringIntervalDays: z.coerce.number().int().positive().optional(),
     fertilizingIntervalDays: z.coerce.number().int().positive().optional(),
+    pruningIntervalDays: z.coerce.number().int().positive().optional(),
     photoUrl: z.string().optional(),
   });
 

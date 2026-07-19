@@ -105,6 +105,7 @@ const GetWeatherQueryParams = z.object({
   lat: z.coerce.number(),
   lon: z.coerce.number(),
   locationName: z.coerce.string().optional(),
+  language: z.coerce.string().optional().default("en"),
 });
 
 router.get("/weather", async (req, res): Promise<void> => {
@@ -113,7 +114,7 @@ router.get("/weather", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const { lat, lon, locationName } = params.data;
+  const { lat, lon, locationName, language } = params.data;
 
   if (!WEATHERAPI_KEY) {
     res.status(503).json({ error: "WEATHERAPI_KEY is not configured. Please add it to your environment secrets." });
@@ -122,7 +123,7 @@ router.get("/weather", async (req, res): Promise<void> => {
 
   let data: any;
   try {
-    const url = `http://api.weatherapi.com/v1/forecast.json?key=${WEATHERAPI_KEY}&q=${lat},${lon}&days=7&aqi=yes&alerts=yes`;
+    const url = `http://api.weatherapi.com/v1/forecast.json?key=${WEATHERAPI_KEY}&q=${lat},${lon}&days=7&aqi=yes&alerts=yes&lang=${encodeURIComponent(language)}`;
     const r = await fetch(url);
     if (!r.ok) {
       const errBody = await r.text();
@@ -207,7 +208,7 @@ router.get("/weather", async (req, res): Promise<void> => {
     current,
     hourly,
     daily,
-    recommendation: buildRecommendation(current),
+    recommendation: buildRecommendation(current, language),
     aiAlerts: [],
   });
 });
@@ -216,6 +217,7 @@ router.get("/weather", async (req, res): Promise<void> => {
 const AiAlertsBody = z.object({
   weatherContext: z.string().max(5000),
   plantIds: z.array(z.number()).max(20).optional(),
+  language: z.string().default("en"),
 });
 
 router.post("/weather/ai-alerts", async (req, res): Promise<void> => {
@@ -247,6 +249,7 @@ router.post("/weather/ai-alerts", async (req, res): Promise<void> => {
     .join("|");
   const cacheKey = buildCacheKey([
     userId,
+    parsed.data.language,
     parsed.data.weatherContext,
     plantSnapshot,
   ]);
@@ -296,6 +299,8 @@ Rules:
 - Best fertilizing is 1-2 days before light rain
 - UV >8: advise avoiding midday field work
 
+Respond in the following language: ${parsed.data.language}.
+
 Return ONLY the JSON array. No markdown. No extra text.`;
 
     const raw = (await sendChatCompletion("smart-weather-alerts", [{ role: "user", content: prompt }]))
@@ -320,6 +325,7 @@ const SmartAlertsBody = z.object({
   lat: z.number(),
   lon: z.number(),
   locationName: z.string().optional(),
+  language: z.string().default("en"),
 });
 
 router.post("/weather/smart-alerts", async (req, res): Promise<void> => {
@@ -332,7 +338,7 @@ router.post("/weather/smart-alerts", async (req, res): Promise<void> => {
   // 1. Fetch weather
   let weatherData: any;
   try {
-    const url = `http://api.weatherapi.com/v1/forecast.json?key=${WEATHERAPI_KEY}&q=${parsed.data.lat},${parsed.data.lon}&days=7&aqi=no&alerts=no`;
+    const url = `http://api.weatherapi.com/v1/forecast.json?key=${WEATHERAPI_KEY}&q=${parsed.data.lat},${parsed.data.lon}&days=7&aqi=no&alerts=no&lang=${encodeURIComponent(parsed.data.language)}`;
     const r = await fetch(url);
     if (!r.ok) { res.status(502).json({ error: "Weather service unavailable" }); return; }
     weatherData = await r.json();
@@ -407,6 +413,7 @@ router.post("/weather/smart-alerts", async (req, res): Promise<void> => {
     userId,
     parsed.data.lat,
     parsed.data.lon,
+    parsed.data.language,
     weatherContext,
     plantContext,
   ]);
@@ -449,7 +456,9 @@ Each object must have:
   "suggestedDate": "YYYY-MM-DD if you're recommending a specific date, otherwise null"
 }
 
-Return ONLY a JSON array. No markdown, no code fences, no extra text.`;
+Return ONLY a JSON array. No markdown, no code fences, no extra text.
+
+Respond in the following language: ${parsed.data.language}.`;
 
     const raw = (await sendChatCompletion("smart-weather-alerts", [{ role: "user", content: prompt }]))
       .replace(/^```json?\s*/i, "").replace(/```\s*$/, "").trim();
@@ -468,23 +477,75 @@ Return ONLY a JSON array. No markdown, no code fences, no extra text.`;
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+const recommendationTranslations: Record<string, Record<string, string>> = {
+  en: {
+    rain_sufficient: "Rainfall is sufficient — skip watering today.",
+    extreme_heat: "Extreme heat — water at dawn or dusk to minimise evaporation.",
+    low_humidity: "Low humidity — increase watering and consider misting delicate plants.",
+    good_conditions: "Conditions are good for general garden maintenance.",
+    high_uv: "Very high UV — avoid outdoor work between 10 am–4 pm.",
+    strong_winds: "Strong winds — postpone spraying and secure tall plants.",
+    near_freezing: "Near-freezing — protect frost-sensitive plants.",
+  },
+  ar: {
+    rain_sufficient: "الأمطار كافية — تجاوز الري اليوم.",
+    extreme_heat: "حر شديد — اسقِ النباتات في الصباح الباكر أو المساء لتقليل التبخر.",
+    low_humidity: "رطوبة منخفضة — زد الري وفكر في رش النباتات الحساسة.",
+    good_conditions: "الظروف جيدة للصيانة العامة للحديقة.",
+    high_uv: "أشعة فوق بنفسجية عالية جدًا — تجنب العمل في الخارج بين 10 ص و4 م.",
+    strong_winds: "رياح قوية — أجل الرش وثبت النباتات الطويلة.",
+    near_freezing: "قريب من التجمد — احمِ النباتات الحساسة للبرد.",
+  },
+  fr: {
+    rain_sufficient: "Les pluies sont suffisantes — passez l'arrosage aujourd'hui.",
+    extreme_heat: "Chaleur extrême — arrosez au lever ou au coucher du soleil pour minimiser l'évaporation.",
+    low_humidity: "Humidité faible — augmentez l'arrosage et envisagez de brumiser les plantes délicates.",
+    good_conditions: "Les conditions sont bonnes pour l'entretien général du jardin.",
+    high_uv: "UV très élevés — évitez le travail extérieur entre 10h et 16h.",
+    strong_winds: "Vents forts — reportez les pulvérisations et sécurisez les plantes hautes.",
+    near_freezing: "Proche du gel — protégez les plantes sensibles au gel.",
+  },
+  es: {
+    rain_sufficient: "La lluvia es suficiente — omita el riego hoy.",
+    extreme_heat: "Calor extremo — riegue al amanecer o al atardecer para minimizar la evaporación.",
+    low_humidity: "Humedad baja — aumente el riego y considere nebulizar plantas delicadas.",
+    good_conditions: "Las condiciones son buenas para el mantenimiento general del jardín.",
+    high_uv: "UV muy alta — evite trabajar al aire libre entre 10 a. m. y 4 p. m.",
+    strong_winds: "Vientos fuertes — posponga las pulverizaciones y asegure las plantas altas.",
+    near_freezing: "Cerca de la congelación — proteja las plantas sensibles a la helada.",
+  },
+  pt: {
+    rain_sufficient: "A chuva é suficiente — pule a rega hoje.",
+    extreme_heat: "Calor extremo — regue ao amanhecer ou ao entardecer para minimizar a evaporação.",
+    low_humidity: "Umidade baixa — aumente a rega e considere nebulizar plantas delicadas.",
+    good_conditions: "As condições estão boas para a manutenção geral do jardim.",
+    high_uv: "UV muito alto — evite trabalhar ao ar livre entre 10h e 16h.",
+    strong_winds: "Ventos fortes — adie as pulverizações e fixe as plantas altas.",
+    near_freezing: "Próximo de congelar — proteja as plantas sensíveis à geada.",
+  },
+};
+
+function tr(key: string, language: string): string {
+  return recommendationTranslations[language]?.[key] ?? recommendationTranslations.en[key] ?? key;
+}
+
 function buildRecommendation(cur: {
   temperature: number; humidity: number; precipitation: number;
   uvIndex: number; windSpeed: number;
-}): string {
+}, language: string): string {
   const tips: string[] = [];
   if (cur.precipitation > 5) {
-    tips.push("Rainfall is sufficient — skip watering today.");
+    tips.push(tr("rain_sufficient", language));
   } else if (cur.temperature > 35) {
-    tips.push("Extreme heat — water at dawn or dusk to minimise evaporation.");
+    tips.push(tr("extreme_heat", language));
   } else if (cur.humidity < 30) {
-    tips.push("Low humidity — increase watering and consider misting delicate plants.");
+    tips.push(tr("low_humidity", language));
   } else {
-    tips.push("Conditions are good for general garden maintenance.");
+    tips.push(tr("good_conditions", language));
   }
-  if (cur.uvIndex >= 8) tips.push("Very high UV — avoid outdoor work between 10 am–4 pm.");
-  if (cur.windSpeed > 30) tips.push("Strong winds — postpone spraying and secure tall plants.");
-  if (cur.temperature < 5) tips.push("Near-freezing — protect frost-sensitive plants.");
+  if (cur.uvIndex >= 8) tips.push(tr("high_uv", language));
+  if (cur.windSpeed > 30) tips.push(tr("strong_winds", language));
+  if (cur.temperature < 5) tips.push(tr("near_freezing", language));
   return tips.join(" ");
 }
 

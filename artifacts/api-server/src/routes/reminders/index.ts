@@ -36,7 +36,11 @@ router.get("/reminders", async (req, res): Promise<void> => {
       plantName: plantsTable.name,
       type: remindersTable.type,
       scheduledDate: remindersTable.scheduledDate,
+      scheduledTime: remindersTable.scheduledTime,
       completed: remindersTable.completed,
+      isCustom: remindersTable.isCustom,
+      recurrenceDays: remindersTable.recurrenceDays,
+      generatedFromReminderId: remindersTable.generatedFromReminderId,
       notes: remindersTable.notes,
       createdAt: remindersTable.createdAt,
     })
@@ -90,7 +94,10 @@ router.post("/reminders", async (req, res): Promise<void> => {
     .values({
       plantId: parsed.data.plantId,
       type: parsed.data.type,
-      scheduledDate: parsed.data.scheduledDate,
+      scheduledDate: parsed.data.scheduledDate.toISOString().split("T")[0],
+      scheduledTime: parsed.data.scheduledTime,
+      isCustom: true,
+      recurrenceDays: parsed.data.recurrenceDays,
       notes: parsed.data.notes,
     })
     .returning();
@@ -154,19 +161,36 @@ router.patch("/reminders/:id", async (req, res): Promise<void> => {
     return;
   }
 
-  const [reminder] = await db
-    .update(remindersTable)
-    .set(parsed.data)
-    .where(eq(remindersTable.id, params.data.id))
-    .returning();
+  // Split recurrence out of the reminder update so we can route it correctly:
+  // - AI-generated care reminders (isCustom=false) use the plant's care interval as recurrence.
+  //   Editing their recurrence updates the plant's interval field.
+  // - Custom reminders store recurrenceDays on the reminder itself.
+  const { recurrenceDays: newRecurrenceDays, ...restUpdate } = parsed.data;
 
-  // Map recurring care types to the plant's interval and last-care date fields.
   const careTypeConfig: Record<string, { intervalField: string; dateField: string; defaultInterval: number }> = {
     watering: { intervalField: "wateringIntervalDays", dateField: "lastWateredDate", defaultInterval: 3 },
     fertilizing: { intervalField: "fertilizingIntervalDays", dateField: "lastFertilizedDate", defaultInterval: 20 },
     pruning: { intervalField: "pruningIntervalDays", dateField: "lastPrunedDate", defaultInterval: 180 },
   };
-  const careConfig = careTypeConfig[reminder.type];
+  const careConfig = careTypeConfig[existingReminder.type];
+
+  // For AI-generated care reminders, changing recurrence updates the plant's care schedule.
+  if (newRecurrenceDays !== undefined && !existingReminder.isCustom && careConfig) {
+    await db
+      .update(plantsTable)
+      .set({ [careConfig.intervalField]: newRecurrenceDays })
+      .where(eq(plantsTable.id, existing.plantId));
+  }
+
+  const [reminder] = await db
+    .update(remindersTable)
+    .set({
+      ...restUpdate,
+      scheduledDate: restUpdate.scheduledDate ? restUpdate.scheduledDate.toISOString().split("T")[0] : undefined,
+      recurrenceDays: existingReminder.isCustom ? newRecurrenceDays : undefined,
+    })
+    .where(eq(remindersTable.id, params.data.id))
+    .returning();
 
   // When a care reminder's completion status changes, update the plant's last-* date
   // so the Dashboard "Recently Watered" card and plant lists reflect the change immediately —
@@ -177,9 +201,13 @@ router.patch("/reminders/:id", async (req, res): Promise<void> => {
       .set({ [careConfig.dateField]: today })
       .where(eq(plantsTable.id, existing.plantId));
 
-    // Generate the next recurring reminder based on the plant's care schedule.
-    // Only create one if the plant has a positive interval for this care type.
-    const interval = (plant[careConfig.intervalField as keyof typeof plant] as number | null | undefined) ?? careConfig.defaultInterval;
+    // Generate the next recurring reminder.
+    // - AI-generated care reminders use the plant's care interval.
+    // - Custom recurring reminders use their own recurrenceDays.
+    const interval = existingReminder.isCustom
+      ? (newRecurrenceDays ?? existingReminder.recurrenceDays ?? 0)
+      : (newRecurrenceDays ?? (plant[careConfig.intervalField as keyof typeof plant] as number | null | undefined) ?? careConfig.defaultInterval);
+
     if (interval > 0) {
       const nextDate = new Date(Date.now() + interval * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
       const existingGenerated = await db
@@ -201,7 +229,10 @@ router.patch("/reminders/:id", async (req, res): Promise<void> => {
           scheduledDate: nextDate,
           completed: false,
           generatedFromReminderId: reminder.id,
-          notes: `Auto-scheduled: next ${reminder.type} in ${interval} day${interval === 1 ? "" : "s"}`,
+          isCustom: false,
+          notes: existingReminder.isCustom
+            ? `Auto-scheduled: repeat ${reminder.type} every ${interval} day${interval === 1 ? "" : "s"}`
+            : `Auto-scheduled: next ${reminder.type} in ${interval} day${interval === 1 ? "" : "s"}`,
         });
       }
     }

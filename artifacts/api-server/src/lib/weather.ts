@@ -63,10 +63,10 @@ export async function geocodeLocation(query: string): Promise<GeocodeResult | nu
   }
 }
 
-export async function fetchWeatherForecast(lat: number, lon: number): Promise<WeatherForecast | null> {
+export async function fetchWeatherForecast(lat: number, lon: number, language = "en"): Promise<WeatherForecast | null> {
   if (!WEATHERAPI_KEY) return null;
   try {
-    const url = `http://api.weatherapi.com/v1/forecast.json?key=${WEATHERAPI_KEY}&q=${lat},${lon}&days=7&aqi=no&alerts=no`;
+    const url = `http://api.weatherapi.com/v1/forecast.json?key=${WEATHERAPI_KEY}&q=${lat},${lon}&days=7&aqi=no&alerts=no&lang=${encodeURIComponent(language)}`;
     const r = await fetch(url);
     if (!r.ok) {
       logger.warn({ status: r.status }, "WeatherAPI forecast request failed");

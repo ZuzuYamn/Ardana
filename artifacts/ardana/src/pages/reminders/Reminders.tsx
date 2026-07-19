@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useListReminders, useUpdateReminder, getListRemindersQueryKey, useListPlants, useCreateReminder, getGetPlantDashboardQueryKey, getListPlantsQueryKey } from '@workspace/api-client-react';
+import { useListReminders, useUpdateReminder, useDeleteReminder, getListRemindersQueryKey, useListPlants, useCreateReminder, getGetPlantDashboardQueryKey, getListPlantsQueryKey, type Reminder } from '@workspace/api-client-react';
 import { useSearch, useLocation } from 'wouter';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Bell, CheckCircle2, Circle, Sprout, Droplets, Leaf, Calendar, Plus, Clock,
   CloudRain, Thermometer, Zap, Shield, Loader2, MapPin, Search, X,
   ChevronDown, ChevronUp, AlertTriangle, Info, FlaskConical, Wheat,
-  Crosshair,
+  Crosshair, Pencil, Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,6 +16,11 @@ import { useToast } from '@/hooks/use-toast';
 import { format, isPast, isToday } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -98,7 +103,7 @@ function alertIcon(type: string) {
 }
 
 function SmartAlertsPanel() {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { toast } = useToast();
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -126,7 +131,7 @@ function SmartAlertsPanel() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ lat: loc.lat, lon: loc.lon, locationName: loc.label }),
+        body: JSON.stringify({ lat: loc.lat, lon: loc.lon, locationName: loc.label, language }),
       });
       if (!res.ok) throw new Error(await res.text());
       const json = await res.json();
@@ -435,6 +440,8 @@ const buildFormSchema = (t: (key: string) => string) => z.object({
   plantId: z.coerce.number().min(1, t('reminders.plant_required')),
   type: z.string().min(1, t('reminders.type_required')),
   scheduledDate: z.string().min(1, t('reminders.date_required')),
+  scheduledTime: z.string().optional(),
+  recurrenceDays: z.coerce.number().int().positive().optional().or(z.literal('')),
   notes: z.string().optional(),
 });
 
@@ -449,7 +456,9 @@ export default function Reminders() {
   const searchStr = useSearch();
   const initialTab = new URLSearchParams(searchStr).get('tab') === 'completed' ? 'completed' : 'upcoming';
   const [tab, setTab] = useState(initialTab);
-  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Reminder | null>(null);
   const [, navigate] = useLocation();
 
   // Keep the URL in sync with the selected tab so deep links work
@@ -468,15 +477,68 @@ export default function Reminders() {
 
   const updateReminder = useUpdateReminder();
   const createReminder = useCreateReminder();
+  const deleteReminder = useDeleteReminder();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(buildFormSchema(t)),
     defaultValues: {
       type: 'watering',
       scheduledDate: new Date().toISOString().split('T')[0],
+      scheduledTime: '',
+      recurrenceDays: '',
       notes: '',
     },
   });
+
+  // Pre-fill or reset the form whenever the dialog opens for create/edit.
+  useEffect(() => {
+    if (!isDialogOpen) return;
+    if (editingReminder) {
+      // For AI-generated care reminders, recurrence comes from the plant's care interval.
+      const plant = plants?.find((p) => p.id === editingReminder.plantId);
+      const careInterval =
+        !editingReminder.isCustom && plant
+          ? (editingReminder.type === 'watering'
+              ? plant.wateringIntervalDays
+              : editingReminder.type === 'fertilizing'
+                ? plant.fertilizingIntervalDays
+                : editingReminder.type === 'pruning'
+                  ? plant.pruningIntervalDays
+                  : null)
+          : null;
+      form.reset({
+        plantId: editingReminder.plantId,
+        type: editingReminder.type,
+        scheduledDate: editingReminder.scheduledDate,
+        scheduledTime: editingReminder.scheduledTime ?? '',
+        recurrenceDays: editingReminder.recurrenceDays ?? careInterval ?? '',
+        notes: editingReminder.notes ?? '',
+      });
+    } else {
+      form.reset({
+        type: 'watering',
+        scheduledDate: new Date().toISOString().split('T')[0],
+        scheduledTime: '',
+        recurrenceDays: '',
+        notes: '',
+      });
+    }
+  }, [isDialogOpen, editingReminder, plants, form]);
+
+  const openCreateDialog = () => {
+    setEditingReminder(null);
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (reminder: Reminder) => {
+    setEditingReminder(reminder);
+    setIsDialogOpen(true);
+  };
+
+  const closeDialog = () => {
+    setIsDialogOpen(false);
+    setEditingReminder(null);
+  };
 
   const handleToggleComplete = (id: number, currentStatus: boolean, scheduledDate: string) => {
     const today = new Date().toISOString().split('T')[0];
@@ -502,12 +564,41 @@ export default function Reminders() {
   };
 
   const onSubmit = (data: FormValues) => {
-    createReminder.mutate({ data }, {
+    const payload = {
+      ...data,
+      recurrenceDays: data.recurrenceDays === '' ? undefined : Number(data.recurrenceDays),
+    };
+    if (editingReminder) {
+      updateReminder.mutate({ id: editingReminder.id, data: payload }, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListRemindersQueryKey({ completed: 'false' }) });
+          queryClient.invalidateQueries({ queryKey: getListRemindersQueryKey({ completed: 'true' }) });
+          queryClient.invalidateQueries({ queryKey: getGetPlantDashboardQueryKey() });
+          queryClient.invalidateQueries({ queryKey: getListPlantsQueryKey() });
+          toast({ title: t('reminders.updated'), description: t('reminders.updated_desc') });
+          closeDialog();
+        }
+      });
+    } else {
+      createReminder.mutate({ data: payload }, {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListRemindersQueryKey({ completed: 'false' }) });
+          toast({ title: t('reminders.added'), description: t('reminders.scheduled') });
+          closeDialog();
+        }
+      });
+    }
+  };
+
+  const handleDelete = (reminder: Reminder) => {
+    deleteReminder.mutate({ id: reminder.id }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListRemindersQueryKey({ completed: 'false' }) });
-        toast({ title: t('reminders.added'), description: t('reminders.scheduled') });
-        setIsAddOpen(false);
-        form.reset();
+        queryClient.invalidateQueries({ queryKey: getListRemindersQueryKey({ completed: 'true' }) });
+        queryClient.invalidateQueries({ queryKey: getGetPlantDashboardQueryKey() });
+        queryClient.invalidateQueries({ queryKey: getListPlantsQueryKey() });
+        toast({ title: t('reminders.deleted'), description: t('reminders.deleted_desc') });
+        setDeleteTarget(null);
       }
     });
   };
@@ -541,15 +632,18 @@ export default function Reminders() {
           <p className="text-muted-foreground mt-1">{t('reminders.subtitle')}</p>
         </div>
 
-        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 bg-primary text-primary-foreground">
-              <Plus className="w-4 h-4" /> {t('reminders.add')}
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button onClick={openCreateDialog} className="gap-2 bg-primary text-primary-foreground">
+            <Plus className="w-4 h-4" /> {t('reminders.add')}
+          </Button>
+        </div>
+
+        <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); else setIsDialogOpen(true); }}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle className="font-serif text-2xl">{t('reminders.new_task_title')}</DialogTitle>
+              <DialogTitle className="font-serif text-2xl">
+                {editingReminder ? t('reminders.edit_task_title') : t('reminders.new_task_title')}
+              </DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
@@ -559,7 +653,11 @@ export default function Reminders() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t('reminders.plant_label')}</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value?.toString()}>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value?.toString()}
+                        disabled={!!editingReminder}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder={t('reminders.select_plant')} />
@@ -618,6 +716,43 @@ export default function Reminders() {
                   />
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="scheduledTime"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('reminders.time_field_label')}</FormLabel>
+                        <FormControl>
+                          <Input type="time" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="recurrenceDays"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('reminders.recurrence_label')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min={1}
+                            placeholder={t('reminders.recurrence_placeholder')}
+                            {...field}
+                            value={field.value ?? ''}
+                            onChange={(e) => field.onChange(e.target.value === '' ? '' : Number(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
                 <FormField
                   control={form.control}
                   name="notes"
@@ -632,8 +767,14 @@ export default function Reminders() {
                   )}
                 />
 
-                <Button type="submit" className="w-full" disabled={createReminder.isPending}>
-                  {t('reminders.schedule_btn')}
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={createReminder.isPending || updateReminder.isPending}
+                >
+                  {editingReminder
+                    ? (updateReminder.isPending ? t('reminders.saving') : t('reminders.save_changes'))
+                    : (createReminder.isPending ? t('reminders.saving') : t('reminders.schedule_btn'))}
                 </Button>
               </form>
             </Form>
@@ -691,18 +832,31 @@ export default function Reminders() {
 
                           <div className="flex-1 min-w-0">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 mb-1">
-                              <h3 className="font-bold text-lg text-foreground truncate">{reminder.plantName}</h3>
+                              <div className="flex items-center gap-2 min-w-0">
+                                <h3 className="font-bold text-lg text-foreground truncate">{reminder.plantName}</h3>
+                                {!reminder.isCustom && (
+                                  <Badge variant="outline" className="text-xs font-normal shrink-0">
+                                    {t('reminders.ai_generated')}
+                                  </Badge>
+                                )}
+                              </div>
                               <div className="flex items-center gap-2 text-sm font-medium">
                                 <Calendar className="w-4 h-4 text-muted-foreground" />
                                 <span className={cn(isOverdue && "text-destructive font-bold")}>
                                   {isToday(date) ? t('reminders.today') : format(date, 'MMM d, yyyy')}
+                                  {reminder.scheduledTime && ` • ${reminder.scheduledTime}`}
                                 </span>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mb-2">
                               {getIconForType(reminder.type)}
                               <span className="capitalize">{t(`reminders.type_${reminder.type}`)}</span>
+                              {(reminder.recurrenceDays && reminder.recurrenceDays > 0) && (
+                                <Badge variant="secondary" className="text-xs font-normal">
+                                  {t('reminders.recurs_every', { days: String(reminder.recurrenceDays) })}
+                                </Badge>
+                              )}
                             </div>
 
                             {reminder.notes && (
@@ -710,6 +864,47 @@ export default function Reminders() {
                                 {reminder.notes}
                               </p>
                             )}
+                          </div>
+
+                          <div className="flex flex-col gap-1.5 shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openEditDialog(reminder)}
+                              aria-label={t('reminders.edit')}
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:text-destructive"
+                                  aria-label={t('reminders.delete')}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>{t('reminders.delete_title')}</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    {t('reminders.delete_desc', { name: reminder.plantName })}
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>{t('reminders.cancel')}</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    onClick={() => handleDelete(reminder)}
+                                  >
+                                    {t('reminders.confirm_delete')}
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </CardContent>
                       </Card>

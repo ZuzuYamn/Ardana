@@ -94,20 +94,20 @@ function windDirArrow(dir: string) {
   return map[dir] ?? "→";
 }
 
-function buildWeatherContext(weather: WeatherData): string {
+function buildWeatherContext(weather: WeatherData, t: (key: string) => string): string {
   const c = weather.current;
   const lines = [
-    `weather.label_location: ${weather.locationName}`,
-    `weather.label_current: ${c.temperature}°C, ${c.weatherDescription}, weather.label_humidity ${c.humidity}%, ` +
-      `weather.label_wind ${c.windSpeed} km/h ${c.windDir}, weather.label_uv ${c.uvIndex}, weather.label_precipitation ${c.precipitation}mm`,
-    `weather.label_pressure: ${c.pressure}mb, weather.label_visibility: ${c.visibility}km`,
-    `weather.label_air_quality_index: ${c.airQualityIndex} (weather.label_us_epa)`,
+    `${t("weather.label_location")}: ${weather.locationName}`,
+    `${t("weather.label_current")}: ${c.temperature}°C, ${c.weatherDescription}, ${t("weather.label_humidity")} ${c.humidity}%, ` +
+      `${t("weather.label_wind")} ${c.windSpeed} km/h ${c.windDir}, ${t("weather.metric_uv_short")} ${c.uvIndex}, ${t("weather.label_precip_short")} ${c.precipitation}mm`,
+    `${t("weather.label_pressure")}: ${c.pressure}mb, ${t("weather.label_visibility")}: ${c.visibility}km`,
+    `${t("weather.label_air_quality_index")}: ${c.airQualityIndex} (${t("weather.label_us_epa")})`,
     "",
-    "weather.label_7_day_forecast:",
+    `${t("weather.label_7_day_forecast")}:`,
     ...weather.daily.map(
       (d) =>
-        `  ${d.date}: ${d.weatherDescription}, max ${d.maxTemp}°C / min ${d.minTemp}°C, ` +
-        `rain ${d.precipitation}mm (${d.chanceOfRain}% chance), wind ${d.maxWindSpeed} km/h, UV ${d.uvIndex}`
+        `  ${d.date}: ${d.weatherDescription}, ${t("weather.metric_temperature")} ${d.maxTemp}°C / ${d.minTemp}°C, ` +
+        `${t("weather.label_precip_short")} ${d.precipitation}mm (${d.chanceOfRain}% ${t("weather.label_chance_of_rain")}), ${t("weather.label_wind")} ${d.maxWindSpeed} km/h, ${t("weather.metric_uv_short")} ${d.uvIndex}`
     ),
   ];
   return lines.join("\n");
@@ -167,7 +167,7 @@ function MetricCard({
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function Weather() {
-  const { t } = useLanguage();
+  const { t, language, isRTL } = useLanguage();
   const { toast } = useToast();
 
   // Location state
@@ -195,6 +195,7 @@ export default function Weather() {
     lat: coords.lat,
     lon: coords.lon,
     locationName: coords.name,
+    language,
   });
 
   // Close search dropdown on outside click
@@ -338,13 +339,13 @@ export default function Weather() {
       }
 
       setAlertsLoading(true);
-      const weatherContext = buildWeatherContext(weather);
+      const weatherContext = buildWeatherContext(weather, t);
       try {
         const r = await fetch(`${API_BASE}/api/weather/ai-alerts`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify({ weatherContext }),
+          body: JSON.stringify({ weatherContext, language }),
         });
         const data = await r.json();
         const alerts = (data.alerts ?? []) as WeatherAlert[];
@@ -397,7 +398,7 @@ export default function Weather() {
   const mapCenter: [number, number] = [coords.lat, coords.lon];
 
   return (
-    <div className="space-y-6 pb-12 max-w-6xl mx-auto">
+    <div className="space-y-6 pb-12 max-w-6xl mx-auto" dir={isRTL ? 'rtl' : 'ltr'}>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

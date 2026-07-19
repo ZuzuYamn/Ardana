@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "sAWpwgVtG7wufmWt6wNOJ"
+uri = "file://screenshots/arabic-help-rtl.jpg"
+type = "image"
+title = "Help page in Arabic (RTL layout)"

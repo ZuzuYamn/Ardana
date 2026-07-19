@@ -10,4 +10,8 @@ export type GetWeatherParams = {
 lat: number;
 lon: number;
 locationName?: string;
+/**
+ * User interface language for localized weather descriptions
+ */
+language?: string;
 };

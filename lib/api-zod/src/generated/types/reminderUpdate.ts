@@ -9,6 +9,10 @@
 export interface ReminderUpdate {
   type?: string;
   scheduledDate?: Date;
+  /** HH:MM time string, e.g. "09:00" */
+  scheduledTime?: string;
+  /** Interval in days for custom recurring reminders. For AI-generated care reminders (watering/fertilizing/pruning), this updates the plant's care interval instead. */
+  recurrenceDays?: number;
   completed?: boolean;
   notes?: string;
 }

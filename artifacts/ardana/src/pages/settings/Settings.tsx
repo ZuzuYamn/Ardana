@@ -13,7 +13,7 @@ export default function Settings() {
   const { fontSize, setFontSize, highContrast, setHighContrast } = useAccessibility();
 
   return (
-    <div className="max-w-3xl mx-auto space-y-8 pb-12">
+    <div className="max-w-3xl mx-auto space-y-8 pb-12" dir={isRTL ? 'rtl' : 'ltr'}>
       <div>
         <h1 className="text-3xl font-serif font-bold tracking-tight text-foreground flex items-center gap-3">
           <SettingsIcon className="w-8 h-8 text-primary" />
@@ -73,25 +73,25 @@ export default function Settings() {
                 onValueChange={(val) => setFontSize(val as any)}
                 className="flex flex-col space-y-2"
               >
-                <div className="flex items-center space-x-3 p-3 rounded-lg border bg-card">
+                <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
                   <RadioGroupItem value="normal" id="fs-normal" />
-                  <Label htmlFor="fs-normal" className="flex-1 cursor-pointer">{t('settings.normal')}</Label>
+                  <Label htmlFor="fs-normal" className="flex-1 cursor-pointer text-start">{t('settings.normal')}</Label>
                 </div>
-                <div className="flex items-center space-x-3 p-3 rounded-lg border bg-card">
+                <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
                   <RadioGroupItem value="large" id="fs-large" />
-                  <Label htmlFor="fs-large" className="flex-1 cursor-pointer text-lg">{t('settings.large')}</Label>
+                  <Label htmlFor="fs-large" className="flex-1 cursor-pointer text-lg text-start">{t('settings.large')}</Label>
                 </div>
-                <div className="flex items-center space-x-3 p-3 rounded-lg border bg-card">
+                <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
                   <RadioGroupItem value="xl" id="fs-xl" />
-                  <Label htmlFor="fs-xl" className="flex-1 cursor-pointer text-xl">{t('settings.xl')}</Label>
+                  <Label htmlFor="fs-xl" className="flex-1 cursor-pointer text-xl text-start">{t('settings.xl')}</Label>
                 </div>
               </RadioGroup>
             </div>
 
-            <div className="flex items-center justify-between p-4 rounded-xl border bg-card">
+            <div className="flex items-center justify-between p-4 rounded-xl border bg-card gap-4">
               <div className="space-y-0.5">
-                <Label className="text-base">{t('settings.high_contrast')}</Label>
-                <p className="text-sm text-muted-foreground">{t('settings.high_contrast_desc')}</p>
+                <Label className="text-base text-start">{t('settings.high_contrast')}</Label>
+                <p className="text-sm text-muted-foreground text-start">{t('settings.high_contrast_desc')}</p>
               </div>
               <Switch 
                 checked={highContrast} 
@@ -109,17 +109,17 @@ export default function Settings() {
             <CardDescription>{t('settings.notifications_desc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 rounded-xl border bg-card">
+            <div className="flex items-center justify-between p-4 rounded-xl border bg-card gap-4">
               <div className="space-y-0.5">
-                <Label className="text-base">{t('settings.weather_alerts')}</Label>
-                <p className="text-sm text-muted-foreground">{t('settings.weather_alerts_desc')}</p>
+                <Label className="text-base text-start">{t('settings.weather_alerts')}</Label>
+                <p className="text-sm text-muted-foreground text-start">{t('settings.weather_alerts_desc')}</p>
               </div>
               <Switch defaultChecked />
             </div>
-            <div className="flex items-center justify-between p-4 rounded-xl border bg-card">
+            <div className="flex items-center justify-between p-4 rounded-xl border bg-card gap-4">
               <div className="space-y-0.5">
-                <Label className="text-base">{t('settings.task_reminders')}</Label>
-                <p className="text-sm text-muted-foreground">{t('settings.task_reminders_desc')}</p>
+                <Label className="text-base text-start">{t('settings.task_reminders')}</Label>
+                <p className="text-sm text-muted-foreground text-start">{t('settings.task_reminders_desc')}</p>
               </div>
               <Switch defaultChecked />
             </div>

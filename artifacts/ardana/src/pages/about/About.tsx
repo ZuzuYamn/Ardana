@@ -155,7 +155,7 @@ export default function About() {
       <div className="border-t pt-12 text-center">
         <p className="text-muted-foreground mb-2">{t("about.built_with")}</p>
         <p className="text-sm font-medium text-foreground">
-          {t("about.version")}
+          v1.0.0 • Ardana © 2026
         </p>
       </div>
     </div>

@@ -111,6 +111,8 @@ export const GetPlantParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const getPlantResponseRemindersItemIsCustomDefault = false;
+
 export const GetPlantResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -135,7 +137,10 @@ export const GetPlantResponse = zod.object({
   "plantName": zod.string(),
   "type": zod.string().describe('watering | fertilizing | pruning | spraying | harvesting | other'),
   "scheduledDate": zod.coerce.date(),
+  "scheduledTime": zod.string().nullable().describe('HH:MM time string, e.g. \"09:00\"'),
   "completed": zod.boolean(),
+  "isCustom": zod.boolean().default(getPlantResponseRemindersItemIsCustomDefault),
+  "recurrenceDays": zod.number().nullable().describe('Interval in days for custom recurring reminders; null means does not repeat'),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 }))
@@ -207,13 +212,18 @@ export const ListPlantRemindersParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const listPlantRemindersResponseIsCustomDefault = false;
+
 export const ListPlantRemindersResponseItem = zod.object({
   "id": zod.number(),
   "plantId": zod.number(),
   "plantName": zod.string(),
   "type": zod.string().describe('watering | fertilizing | pruning | spraying | harvesting | other'),
   "scheduledDate": zod.coerce.date(),
+  "scheduledTime": zod.string().nullable().describe('HH:MM time string, e.g. \"09:00\"'),
   "completed": zod.boolean(),
+  "isCustom": zod.boolean().default(listPlantRemindersResponseIsCustomDefault),
+  "recurrenceDays": zod.number().nullable().describe('Interval in days for custom recurring reminders; null means does not repeat'),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -229,13 +239,18 @@ export const ListRemindersQueryParams = zod.object({
   "upcoming": zod.coerce.string().optional().describe('If \"true\", return only upcoming\/overdue reminders')
 })
 
+export const listRemindersResponseIsCustomDefault = false;
+
 export const ListRemindersResponseItem = zod.object({
   "id": zod.number(),
   "plantId": zod.number(),
   "plantName": zod.string(),
   "type": zod.string().describe('watering | fertilizing | pruning | spraying | harvesting | other'),
   "scheduledDate": zod.coerce.date(),
+  "scheduledTime": zod.string().nullable().describe('HH:MM time string, e.g. \"09:00\"'),
   "completed": zod.boolean(),
+  "isCustom": zod.boolean().default(listRemindersResponseIsCustomDefault),
+  "recurrenceDays": zod.number().nullable().describe('Interval in days for custom recurring reminders; null means does not repeat'),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -249,8 +264,12 @@ export const CreateReminderBody = zod.object({
   "plantId": zod.number(),
   "type": zod.string(),
   "scheduledDate": zod.coerce.date(),
+  "scheduledTime": zod.string().optional().describe('HH:MM time string, e.g. \"09:00\"'),
+  "recurrenceDays": zod.number().optional().describe('Interval in days for recurring reminders; omit for one-time'),
   "notes": zod.string().optional()
 })
+
+export const createReminderResponseIsCustomDefault = false;
 
 export const CreateReminderResponse = zod.object({
   "id": zod.number(),
@@ -258,7 +277,10 @@ export const CreateReminderResponse = zod.object({
   "plantName": zod.string(),
   "type": zod.string().describe('watering | fertilizing | pruning | spraying | harvesting | other'),
   "scheduledDate": zod.coerce.date(),
+  "scheduledTime": zod.string().nullable().describe('HH:MM time string, e.g. \"09:00\"'),
   "completed": zod.boolean(),
+  "isCustom": zod.boolean().default(createReminderResponseIsCustomDefault),
+  "recurrenceDays": zod.number().nullable().describe('Interval in days for custom recurring reminders; null means does not repeat'),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -274,9 +296,13 @@ export const UpdateReminderParams = zod.object({
 export const UpdateReminderBody = zod.object({
   "type": zod.string().optional(),
   "scheduledDate": zod.coerce.date().optional(),
+  "scheduledTime": zod.string().optional().describe('HH:MM time string, e.g. \"09:00\"'),
+  "recurrenceDays": zod.number().optional().describe('Interval in days for custom recurring reminders. For AI-generated care reminders (watering\/fertilizing\/pruning), this updates the plant\'s care interval instead.'),
   "completed": zod.boolean().optional(),
   "notes": zod.string().optional()
 })
+
+export const updateReminderResponseIsCustomDefault = false;
 
 export const UpdateReminderResponse = zod.object({
   "id": zod.number(),
@@ -284,7 +310,10 @@ export const UpdateReminderResponse = zod.object({
   "plantName": zod.string(),
   "type": zod.string().describe('watering | fertilizing | pruning | spraying | harvesting | other'),
   "scheduledDate": zod.coerce.date(),
+  "scheduledTime": zod.string().nullable().describe('HH:MM time string, e.g. \"09:00\"'),
   "completed": zod.boolean(),
+  "isCustom": zod.boolean().default(updateReminderResponseIsCustomDefault),
+  "recurrenceDays": zod.number().nullable().describe('Interval in days for custom recurring reminders; null means does not repeat'),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -303,9 +332,12 @@ export const DeleteReminderResponse = zod.void()
 /**
  * @summary Identify a plant from an uploaded image
  */
+export const identifyPlantBodyLanguageDefault = `en`;
+
 export const IdentifyPlantBody = zod.object({
   "imageBase64": zod.string().describe('Base64-encoded image data'),
-  "mimeType": zod.string().describe('Image MIME type, e.g. image\/jpeg')
+  "mimeType": zod.string().describe('Image MIME type, e.g. image\/jpeg'),
+  "language": zod.string().default(identifyPlantBodyLanguageDefault).describe('User interface language for the AI response (e.g. en, ar, fr, es, pt)')
 })
 
 export const IdentifyPlantResponse = zod.object({
@@ -327,9 +359,12 @@ export const IdentifyPlantResponse = zod.object({
 /**
  * @summary Detect plant disease from an uploaded image
  */
+export const detectDiseaseBodyLanguageDefault = `en`;
+
 export const DetectDiseaseBody = zod.object({
   "imageBase64": zod.string().describe('Base64-encoded image data'),
-  "mimeType": zod.string().describe('Image MIME type, e.g. image\/jpeg')
+  "mimeType": zod.string().describe('Image MIME type, e.g. image\/jpeg'),
+  "language": zod.string().default(detectDiseaseBodyLanguageDefault).describe('User interface language for the AI response (e.g. en, ar, fr, es, pt)')
 })
 
 export const DetectDiseaseResponse = zod.object({
@@ -353,37 +388,77 @@ export const DetectDiseaseResponse = zod.object({
 export const GetWeatherQueryParams = zod.object({
   "lat": zod.coerce.number(),
   "lon": zod.coerce.number(),
-  "locationName": zod.coerce.string().optional()
+  "locationName": zod.coerce.string().optional(),
+  "language": zod.coerce.string().optional()
 })
 
 export const GetWeatherResponse = zod.object({
   "locationName": zod.string(),
+  "lat": zod.number(),
+  "lon": zod.number(),
+  "timezone": zod.string().optional(),
   "current": zod.object({
   "temperature": zod.number(),
   "feelsLike": zod.number(),
   "humidity": zod.number(),
   "windSpeed": zod.number(),
+  "windDir": zod.string(),
+  "windDegree": zod.number(),
+  "windGust": zod.number(),
   "weatherCode": zod.number(),
   "weatherDescription": zod.string(),
+  "weatherIcon": zod.string(),
   "isDay": zod.boolean(),
-  "precipitation": zod.number()
+  "precipitation": zod.number(),
+  "pressure": zod.number(),
+  "visibility": zod.number(),
+  "cloudCover": zod.number(),
+  "uvIndex": zod.number(),
+  "airQualityIndex": zod.number()
 }),
   "hourly": zod.array(zod.object({
   "time": zod.string(),
   "temperature": zod.number(),
+  "feelsLike": zod.number(),
   "precipitation": zod.number(),
+  "chanceOfRain": zod.number(),
   "weatherCode": zod.number(),
-  "humidity": zod.number()
+  "weatherDescription": zod.string(),
+  "humidity": zod.number(),
+  "windSpeed": zod.number(),
+  "windDir": zod.string(),
+  "uvIndex": zod.number(),
+  "cloudCover": zod.number()
 })),
   "daily": zod.array(zod.object({
   "date": zod.string(),
   "maxTemp": zod.number(),
   "minTemp": zod.number(),
+  "avgHumidity": zod.number(),
   "precipitation": zod.number(),
+  "chanceOfRain": zod.number(),
+  "maxWindSpeed": zod.number(),
   "weatherCode": zod.number(),
   "weatherDescription": zod.string(),
+  "weatherIcon": zod.string(),
   "sunrise": zod.string(),
-  "sunset": zod.string()
+  "sunset": zod.string(),
+  "moonPhase": zod.string(),
+  "uvIndex": zod.number(),
+  "hourly": zod.array(zod.object({
+  "time": zod.string(),
+  "temperature": zod.number(),
+  "feelsLike": zod.number(),
+  "precipitation": zod.number(),
+  "chanceOfRain": zod.number(),
+  "weatherCode": zod.number(),
+  "weatherDescription": zod.string(),
+  "humidity": zod.number(),
+  "windSpeed": zod.number(),
+  "windDir": zod.string(),
+  "uvIndex": zod.number(),
+  "cloudCover": zod.number()
+}))
 })),
   "recommendation": zod.string().describe('AI-generated care recommendation based on weather')
 })

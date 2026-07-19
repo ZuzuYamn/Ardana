@@ -10,5 +10,9 @@ export interface ReminderInput {
   plantId: number;
   type: string;
   scheduledDate: Date;
+  /** HH:MM time string, e.g. "09:00" */
+  scheduledTime?: string;
+  /** Interval in days for recurring reminders; omit for one-time */
+  recurrenceDays?: number;
   notes?: string;
 }

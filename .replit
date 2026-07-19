@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web", "bash", "postgresql-16"]
+modules = ["nodejs-20", "web", "bash"]
 
 [deployment]
 router = "application"
@@ -24,17 +24,13 @@ args = "artifacts/api-server: API Server"
 task = "workflow.run"
 args = "artifacts/ardana: web"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "build"
-
 [[workflows.workflow]]
 name = "artifacts/api-server: API Server"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=8080 pnpm --filter @workspace/api-server run dev"
+args = "cd /home/runner/workspace/artifacts/api-server && export NODE_ENV=development && node ./build.mjs && node --enable-source-maps ./dist/index.mjs"
 waitForPort = 8080
 
 [workflows.workflow.metadata]
@@ -49,7 +45,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=5173 BASE_PATH=/ pnpm --filter @workspace/ardana run dev"
+args = "cd /home/runner/workspace/artifacts/ardana && PORT=5173 BASE_PATH=/ node_modules/.bin/vite --config vite.config.ts --host 0.0.0.0"
 waitForPort = 5173
 
 [[workflows.workflow]]

@@ -11,4 +11,6 @@ export interface PlantImageInput {
   imageBase64: string;
   /** Image MIME type, e.g. image/jpeg */
   mimeType: string;
+  /** User interface language for the AI response (e.g. en, ar, fr, es, pt) */
+  language?: string;
 }

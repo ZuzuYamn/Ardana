@@ -24,7 +24,8 @@ function deriveGrowthStage(ageYears: number | undefined): string {
 
 // ─── Prompts ──────────────────────────────────────────────────────────────────
 
-const IDENTIFY_PROMPT = `You are an expert botanist. Analyze this plant image and identify it.
+function buildIdentifyPrompt(language: string): string {
+  return `You are an expert botanist. Analyze this plant image and identify it.
 
 Return a valid JSON object (no markdown, no code blocks) with these exact fields:
 {
@@ -48,9 +49,13 @@ Return a valid JSON object (no markdown, no code blocks) with these exact fields
 
 estimatedAgeYears should be your best visual estimate of how many years the plant has been growing. For young seedlings set 0; for mature trees use whole years. If the age cannot be estimated from the image, set it to null.
 
-If you cannot identify the plant or if the image is not of a plant, set species/commonName to null and explain in description. Set error only if there is a technical problem with the image.`;
+If you cannot identify the plant or if the image is not of a plant, set species/commonName to null and explain in description. Set error only if there is a technical problem with the image.
 
-const DISEASE_PROMPT = `You are an expert plant pathologist. Analyze this plant image and assess its health.
+Respond in the following language: ${language}.`;
+}
+
+function buildDiseasePrompt(language: string): string {
+  return `You are an expert plant pathologist. Analyze this plant image and assess its health.
 
 Return a valid JSON object (no markdown, no code blocks) with these exact fields:
 {
@@ -67,7 +72,10 @@ Return a valid JSON object (no markdown, no code blocks) with these exact fields
   "error": null
 }
 
-Be specific and practical. If the plant appears healthy, set isHealthy to true and diseaseName to null.`;
+Be specific and practical. If the plant appears healthy, set isHealthy to true and diseaseName to null.
+
+Respond in the following language: ${language}.`;
+}
 
 const CHAT_SYSTEM_INSTRUCTION = `You are Ardana's AI farming and plant care assistant. You are knowledgeable, friendly, and practical.
 
@@ -199,10 +207,10 @@ router.post("/ai/identify-plant", async (req, res) => {
     return;
   }
 
-  const { imageBase64, mimeType } = parsed.data;
+  const { imageBase64, mimeType, language } = parsed.data;
 
   try {
-    const raw = await generateFromImage("plant-identification", imageBase64, mimeType, IDENTIFY_PROMPT);
+    const raw = await generateFromImage("plant-identification", imageBase64, mimeType, buildIdentifyPrompt(language));
     const jsonText = stripFences(raw);
 
     let result: Record<string, unknown>;
@@ -235,10 +243,10 @@ router.post("/ai/detect-disease", async (req, res) => {
     return;
   }
 
-  const { imageBase64, mimeType } = parsed.data;
+  const { imageBase64, mimeType, language } = parsed.data;
 
   try {
-    const raw = await generateFromImage("disease-detection", imageBase64, mimeType, DISEASE_PROMPT);
+    const raw = await generateFromImage("disease-detection", imageBase64, mimeType, buildDiseasePrompt(language));
     const jsonText = stripFences(raw);
 
     let result: Record<string, unknown>;
@@ -370,6 +378,7 @@ const CareScheduleBody = z.object({
   estimatedAgeYears: z.coerce.number().min(0).optional(),
   location: z.string().min(1, "Location is required"),
   plantType: z.string().default("tree"),
+  language: z.string().default("en"),
 });
 
 const CARE_SCHEDULE_PROMPT = `You are an expert horticulturist and agronomist. Generate a personalized, evidence-based watering and fertilization schedule for a specific plant in its exact location and current weather context.
@@ -423,7 +432,7 @@ router.post("/ai/care-schedule", async (req, res): Promise<void> => {
     return;
   }
 
-  const { species, commonName, estimatedAgeYears, location, plantType } = parsed.data;
+  const { species, commonName, estimatedAgeYears, location, plantType, language } = parsed.data;
 
   const growthStage = deriveGrowthStage(estimatedAgeYears);
 
@@ -433,7 +442,7 @@ router.post("/ai/care-schedule", async (req, res): Promise<void> => {
     let weatherContext = "Weather data unavailable; use general climate knowledge for this location.";
     let climateSummary = "";
     if (geo) {
-      const forecast = await fetchWeatherForecast(geo.lat, geo.lon);
+      const forecast = await fetchWeatherForecast(geo.lat, geo.lon, language);
       if (forecast) {
         const avgMaxTemp = Math.round(
           forecast.daily.reduce((sum, d) => sum + d.maxTemp, 0) / forecast.daily.length
@@ -473,6 +482,8 @@ router.post("/ai/care-schedule", async (req, res): Promise<void> => {
     }
 
     const prompt = `${CARE_SCHEDULE_PROMPT}
+
+Respond in the following language: ${language}.
 
 PLANT PROFILE:
 - Species: ${species ?? "unknown"}

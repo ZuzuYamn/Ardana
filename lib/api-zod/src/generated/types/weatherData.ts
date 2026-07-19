@@ -11,6 +11,9 @@ import type { WeatherHourly } from './weatherHourly';
 
 export interface WeatherData {
   locationName: string;
+  lat: number;
+  lon: number;
+  timezone?: string;
   current: WeatherCurrent;
   hourly: WeatherHourly[];
   daily: WeatherDaily[];

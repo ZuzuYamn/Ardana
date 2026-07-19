@@ -166,7 +166,7 @@ type FormValues = z.infer<ReturnType<typeof buildFormSchema>>;
 export default function PlantNew() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [imageData, setImageData] = useState<{ dataUrl: string; base64: string; mimeType: string } | null>(null);
@@ -332,6 +332,7 @@ export default function PlantNew() {
           estimatedAgeYears,
           location,
           plantType: selectedType,
+          language,
         }),
       });
       if (!res.ok) {

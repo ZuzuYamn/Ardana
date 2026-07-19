@@ -50,7 +50,7 @@ function ConfidenceBadge({ confidence, t }: { confidence: string; t: (key: strin
 
 export default function PlantIdentifier() {
   const { toast } = useToast();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const identifyMutation = useIdentifyPlant();
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -71,7 +71,7 @@ export default function PlantIdentifier() {
     try {
       const { base64, mimeType, previewUrl } = await compressImage(file);
       setSelectedImage({ previewUrl, base64, mimeType });
-      identifyMutation.mutate({ data: { imageBase64: base64, mimeType } });
+      identifyMutation.mutate({ data: { imageBase64: base64, mimeType, language } });
     } catch {
       toast({ title: t('plant_id.image_error_title'), description: t('plant_id.image_error_desc'), variant: 'destructive' });
     }

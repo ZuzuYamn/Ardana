@@ -68,20 +68,21 @@ export default function Settings() {
               <Label className="text-base flex items-center gap-2">
                 <Type className="w-4 h-4" /> {t('settings.text_size')}
               </Label>
-              <RadioGroup 
-                defaultValue={fontSize} 
+              <RadioGroup
+                defaultValue={fontSize}
                 onValueChange={(val) => setFontSize(val as any)}
                 className="flex flex-col space-y-2"
+                dir={isRTL ? 'rtl' : 'ltr'}
               >
-                <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                <div className="flex items-center justify-start gap-3 p-3 rounded-lg border bg-card" dir={isRTL ? 'rtl' : 'ltr'}>
                   <RadioGroupItem value="normal" id="fs-normal" />
                   <Label htmlFor="fs-normal" className="flex-1 cursor-pointer text-start">{t('settings.normal')}</Label>
                 </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                <div className="flex items-center justify-start gap-3 p-3 rounded-lg border bg-card" dir={isRTL ? 'rtl' : 'ltr'}>
                   <RadioGroupItem value="large" id="fs-large" />
                   <Label htmlFor="fs-large" className="flex-1 cursor-pointer text-lg text-start">{t('settings.large')}</Label>
                 </div>
-                <div className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                <div className="flex items-center justify-start gap-3 p-3 rounded-lg border bg-card" dir={isRTL ? 'rtl' : 'ltr'}>
                   <RadioGroupItem value="xl" id="fs-xl" />
                   <Label htmlFor="fs-xl" className="flex-1 cursor-pointer text-xl text-start">{t('settings.xl')}</Label>
                 </div>

@@ -39,7 +39,8 @@ export type Feature =
   | "disease-detection"
   | "plant-identification"
   | "contact-support"
-  | "smart-weather-alerts";
+  | "smart-weather-alerts"
+  | "care-schedule";
 
 const CONCURRENCY_LIMITS: Record<Feature, number> = {
   "ai-assistant": 3,
@@ -47,6 +48,7 @@ const CONCURRENCY_LIMITS: Record<Feature, number> = {
   "plant-identification": 2,
   "contact-support": 1,
   "smart-weather-alerts": 1,
+  "care-schedule": 2,
 };
 
 // ─── Key pool ─────────────────────────────────────────────────────────────────

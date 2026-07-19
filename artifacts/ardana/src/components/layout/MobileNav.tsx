@@ -2,7 +2,6 @@ import React from 'react';
 import { Link, useLocation } from 'wouter';
 import { LayoutDashboard, Leaf, Bell, ScanSearch, Menu, LogOut, User, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ArdanaLogo } from '@/components/ui/ArdanaLogo';
 import {
   Sheet,
   SheetContent,
@@ -44,9 +43,12 @@ export function MobileNav() {
     <>
       {/* Top bar */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-background/80 backdrop-blur-md border-b z-40 flex items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2.5">
-          <ArdanaLogo size={34} variant="dark" />
-          <h1 className="font-serif text-xl font-bold tracking-tight">{t('brand.name')}</h1>
+        <Link href="/" className="block">
+          <img
+            src={`${import.meta.env.BASE_URL}logo-header.svg`}
+            alt={t('brand.logo_aria')}
+            className="h-9 w-auto"
+          />
         </Link>
 
         <Sheet>
@@ -59,11 +61,12 @@ export function MobileNav() {
             {/* User header */}
             <div className="p-6 bg-sidebar text-sidebar-foreground">
               <SheetHeader>
-                <SheetTitle className="text-left text-sidebar-foreground flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                    <Leaf className="w-5 h-5 text-primary-foreground" />
-                  </div>
-                  <span className="font-serif text-2xl">{t('brand.name')}</span>
+                <SheetTitle className="text-left text-sidebar-foreground">
+                  <img
+                    src={`${import.meta.env.BASE_URL}logo-header-light.svg`}
+                    alt={t('brand.logo_aria')}
+                    className="h-10 w-auto"
+                  />
                 </SheetTitle>
               </SheetHeader>
               {user && (
@@ -117,8 +120,8 @@ export function MobileNav() {
       </div>
 
       {/* Bottom tab bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-background border-t z-40 px-6">
-        <div className="h-full flex items-center justify-between">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-background border-t z-40 px-2">
+        <div className="h-full flex items-center">
           {mainNav.map((item) => {
             const isActive = location === item.href || (item.href !== '/' && location.startsWith(item.href));
             return (
@@ -126,12 +129,14 @@ export function MobileNav() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 w-16 h-full transition-colors",
+                  "flex flex-col items-center justify-center gap-1 flex-1 min-w-0 h-full transition-colors",
                   isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 <item.icon className={cn("w-6 h-6", isActive && "fill-primary/20")} strokeWidth={isActive ? 2.5 : 2} />
-                <span className="text-[10px] font-medium">{item.label}</span>
+                <span className="text-[10px] font-medium leading-3 text-center truncate w-full px-1">
+                  {item.label}
+                </span>
               </Link>
             );
           })}

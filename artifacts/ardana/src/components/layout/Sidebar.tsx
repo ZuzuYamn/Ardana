@@ -7,7 +7,6 @@ import {
   Settings, HelpCircle, Info, Leaf, LogOut, User, MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ArdanaLogo } from '@/components/ui/ArdanaLogo';
 import { Button } from '@/components/ui/button';
 
 export function Sidebar() {
@@ -58,12 +57,12 @@ export function Sidebar() {
     )}>
       {/* Logo */}
       <div className="p-6">
-        <Link href="/" className="flex items-center gap-3">
-          <ArdanaLogo size={42} variant="dark" />
-          <div>
-            <h1 className="font-serif text-2xl font-bold text-sidebar-foreground tracking-tight">{t('brand.name')}</h1>
-            <p className="text-xs text-sidebar-foreground/60 font-medium">{t('sidebar.tagline')}</p>
-          </div>
+        <Link href="/" className="block">
+          <img
+            src={`${import.meta.env.BASE_URL}logo-header-light.svg`}
+            alt={t('brand.logo_aria')}
+            className="h-12 w-auto"
+          />
         </Link>
       </div>
 

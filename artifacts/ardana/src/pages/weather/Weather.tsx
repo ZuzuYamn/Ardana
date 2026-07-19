@@ -100,6 +100,12 @@ function aqiLabel(aqi: number) {
   return { label: labels[i] ?? "—", color: colors[i] ?? "text-gray-400" };
 }
 
+function translateMoonPhase(moonPhase: string, t: (key: string) => string): string {
+  const key = `weather.moon_${moonPhase.toLowerCase().replace(/\s+/g, "_")}`;
+  const translated = t(key);
+  return translated === key ? moonPhase : translated;
+}
+
 function windDirArrow(dir: string) {
   const map: Record<string, string> = {
     N: "↑", NNE: "↗", NE: "↗", ENE: "→", E: "→", ESE: "→",
@@ -164,16 +170,16 @@ function MetricCard({
   icon, label, value, sub, iconBg,
 }: { icon: React.ReactNode; label: string; value: string; sub?: string; iconBg?: string }) {
   return (
-    <div className="bg-card border border-border rounded-2xl shadow-sm flex flex-col items-center justify-center text-center gap-2.5 p-4 h-36">
+    <div className="bg-card border border-border rounded-2xl shadow-sm flex flex-col items-center justify-center text-center gap-3 p-4 min-h-36 h-auto">
       <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${iconBg ?? "bg-primary/10"}`}>
         {icon}
       </div>
-      <div className="w-full flex flex-col items-center gap-0.5 min-w-0 overflow-hidden">
-        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest w-full truncate leading-none">{label}</p>
-        <p className="text-sm font-semibold text-foreground leading-snug w-full truncate mt-0.5">{value}</p>
+      <div className="w-full flex flex-col items-center gap-1 min-w-0">
+        <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-widest w-full truncate leading-tight">{label}</p>
+        <p className="text-sm font-semibold text-foreground leading-snug w-full truncate">{value}</p>
         {sub
-          ? <p className="text-[10px] text-muted-foreground w-full truncate leading-none">{sub}</p>
-          : <p className="text-[10px] text-transparent select-none leading-none">—</p>
+          ? <p className="text-[10px] text-muted-foreground w-full truncate leading-tight">{sub}</p>
+          : <p className="text-[10px] text-transparent select-none leading-tight">—</p>
         }
       </div>
     </div>
@@ -640,9 +646,9 @@ export default function Weather() {
                 <>
                   <MetricCard
                     icon={<Sun className="w-5 h-5 text-amber-500" />}
-                     label={t("weather.metric_uv_index")}
+                    label={t("weather.metric_uv_index")}
                     value={`${weather.current.uvIndex}`}
-                    sub={uv.label}
+                    sub={t(uv.label)}
                     iconBg="bg-amber-50"
                   />
                   <MetricCard
@@ -684,9 +690,9 @@ export default function Weather() {
                   />
                   <MetricCard
                     icon={<Leaf className="w-5 h-5 text-green-600" />}
-                     label={t("weather.metric_air_quality")}
-                    value={aqi.label}
-                     sub={t("weather.label_us_epa")}
+                    label={t("weather.metric_air_quality")}
+                    value={t(aqi.label)}
+                    sub={t("weather.label_us_epa")}
                     iconBg="bg-green-50"
                   />
                 </>
@@ -790,7 +796,7 @@ export default function Weather() {
                            {i === 0 ? t("weather.day_today") : i === 1 ? t("weather.day_tomorrow") : formatDay(day.date, language)}
                         </p>
                         <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Moon className="w-3 h-3" /> {day.moonPhase}
+                          <Moon className="w-3 h-3" /> {translateMoonPhase(day.moonPhase, t)}
                         </p>
                       </div>
                       <img src={day.weatherIcon} alt={day.weatherDescription} className="w-9 h-9 shrink-0" />
@@ -841,7 +847,7 @@ export default function Weather() {
                           <div className="text-sm">
                             <span className="text-muted-foreground">{t("weather.metric_uv_short")}: </span>
                             <span className={`font-medium ${uvLabel(day.uvIndex).color}`}>
-                              {day.uvIndex} — {uvLabel(day.uvIndex).label}
+                              {day.uvIndex} — {t(uvLabel(day.uvIndex).label)}
                             </span>
                           </div>
                         </div>
@@ -957,7 +963,7 @@ export default function Weather() {
                           }`}
                         >
                           {alert.severity === "critical" && <AlertTriangle className="w-3 h-3 mr-1" />}
-                          {alert.severity}
+                          {t(`weather.severity_${alert.severity}`)}
                         </Badge>
                       </div>
                       <p className="text-sm leading-relaxed opacity-90">{alert.message}</p>

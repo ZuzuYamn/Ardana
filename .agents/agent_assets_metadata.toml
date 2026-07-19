@@ -6,3 +6,21 @@ id = "sAWpwgVtG7wufmWt6wNOJ"
 uri = "file://screenshots/arabic-help-rtl.jpg"
 type = "image"
 title = "Help page in Arabic (RTL layout)"
+
+[[outputs]]
+id = "GEvI0KTexX1CG12zmVtRW"
+uri = "file://artifacts/ardana/public/logo.png"
+type = "image"
+title = "Ardana logo (PNG)"
+
+[[outputs]]
+id = "wrRMRu5D9tYBaHSLmwKlf"
+uri = "file://artifacts/ardana/public/logo-header.svg"
+type = "image"
+title = "Header logo for light backgrounds"
+
+[[outputs]]
+id = "g8MhYz9pLNIl2HcBLKjtN"
+uri = "file://artifacts/ardana/public/logo-header-light.svg"
+type = "image"
+title = "Header logo for dark sidebar"

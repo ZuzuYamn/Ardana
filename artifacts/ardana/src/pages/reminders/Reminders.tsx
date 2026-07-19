@@ -474,6 +474,17 @@ export default function Reminders() {
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Reminder | null>(null);
   const [, navigate] = useLocation();
+  const tabsRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to the reminder tabs when landing from a dashboard deep link
+  useEffect(() => {
+    const params = new URLSearchParams(searchStr);
+    if (params.get('tab') && tabsRef.current) {
+      setTimeout(() => {
+        tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, []);
 
   // Keep the URL in sync with the selected tab so deep links work
   useEffect(() => {
@@ -804,162 +815,164 @@ export default function Reminders() {
       <SmartAlertsPanel />
 
       {/* ── Reminder list ────────────────────────────────────────────────── */}
-      <Tabs value={tab} onValueChange={setTab} className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2 bg-muted/50 p-1 rounded-xl">
-          <TabsTrigger value="upcoming" className="rounded-lg">{t('reminders.pending_tab')}</TabsTrigger>
-          <TabsTrigger value="completed" className="rounded-lg">{t('reminders.completed_tab')}</TabsTrigger>
-        </TabsList>
+      <div id="reminders-tabs" ref={tabsRef} className="scroll-mt-24">
+        <Tabs value={tab} onValueChange={setTab} className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-2 bg-muted/50 p-1 rounded-xl">
+            <TabsTrigger value="upcoming" className="rounded-lg">{t('reminders.pending_tab')}</TabsTrigger>
+            <TabsTrigger value="completed" className="rounded-lg">{t('reminders.completed_tab')}</TabsTrigger>
+          </TabsList>
 
-        <div className="mt-8">
-          {isLoading ? (
-            <div className="space-y-4">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-2xl" />)}
-            </div>
-          ) : reminders && reminders.length > 0 ? (
-            <div className="space-y-4">
-              <AnimatePresence mode="popLayout">
-                {reminders.map(reminder => {
-                  const date = new Date(reminder.scheduledDate);
-                  const isOverdue = !reminder.completed && isPast(date) && !isToday(date);
-                  const plant = plants?.find(p => p.id === reminder.plantId);
-                  const effectiveRecurrenceDays = reminder.isCustom
-                    ? reminder.recurrenceDays
-                    : (reminder.type === 'watering'
-                        ? plant?.wateringIntervalDays
-                        : reminder.type === 'fertilizing'
-                          ? plant?.fertilizingIntervalDays
-                          : reminder.type === 'pruning'
-                            ? plant?.pruningIntervalDays
-                            : reminder.type === 'spraying'
-                              ? plant?.sprayingIntervalDays
-                              : reminder.type === 'harvesting'
-                                ? plant?.harvestingIntervalDays
-                                : null);
+          <div className="mt-8">
+            {isLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full rounded-2xl" />)}
+              </div>
+            ) : reminders && reminders.length > 0 ? (
+              <div className="space-y-4">
+                <AnimatePresence mode="popLayout">
+                  {reminders.map(reminder => {
+                    const date = new Date(reminder.scheduledDate);
+                    const isOverdue = !reminder.completed && isPast(date) && !isToday(date);
+                    const plant = plants?.find(p => p.id === reminder.plantId);
+                    const effectiveRecurrenceDays = reminder.isCustom
+                      ? reminder.recurrenceDays
+                      : (reminder.type === 'watering'
+                          ? plant?.wateringIntervalDays
+                          : reminder.type === 'fertilizing'
+                            ? plant?.fertilizingIntervalDays
+                            : reminder.type === 'pruning'
+                              ? plant?.pruningIntervalDays
+                              : reminder.type === 'spraying'
+                                ? plant?.sprayingIntervalDays
+                                : reminder.type === 'harvesting'
+                                  ? plant?.harvestingIntervalDays
+                                  : null);
 
-                  return (
-                    <motion.div
-                      layout
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
-                      key={reminder.id}
-                    >
-                      <Card className={cn(
-                        "overflow-hidden border transition-all hover:shadow-md",
-                        getColorClass(reminder.type),
-                        isOverdue && "border-destructive/50 bg-destructive/5"
-                      )}>
-                        <CardContent className="p-4 sm:p-6 flex items-center gap-4">
-                          <button
-                            onClick={() => handleToggleComplete(reminder.id, reminder.completed, reminder.scheduledDate)}
-                            className="group shrink-0"
-                          >
-                            {reminder.completed ? (
-                              <CheckCircle2 className="w-8 h-8 text-primary" />
-                            ) : (
-                              <Circle className="w-8 h-8 text-muted-foreground group-hover:text-primary transition-colors" />
-                            )}
-                          </button>
+                    return (
+                      <motion.div
+                        layout
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        key={reminder.id}
+                      >
+                        <Card className={cn(
+                          "overflow-hidden border transition-all hover:shadow-md",
+                          getColorClass(reminder.type),
+                          isOverdue && "border-destructive/50 bg-destructive/5"
+                        )}>
+                          <CardContent className="p-4 sm:p-6 flex items-center gap-4">
+                            <button
+                              onClick={() => handleToggleComplete(reminder.id, reminder.completed, reminder.scheduledDate)}
+                              className="group shrink-0"
+                            >
+                              {reminder.completed ? (
+                                <CheckCircle2 className="w-8 h-8 text-primary" />
+                              ) : (
+                                <Circle className="w-8 h-8 text-muted-foreground group-hover:text-primary transition-colors" />
+                              )}
+                            </button>
 
-                          <div className="flex-1 min-w-0">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 mb-1">
-                              <div className="flex items-center gap-2 min-w-0">
-                                <h3 className="font-bold text-lg text-foreground truncate">{reminder.plantName}</h3>
-                                {!reminder.isCustom && (
-                                  <Badge variant="outline" className="text-xs font-normal shrink-0">
-                                    {t('reminders.auto_scheduled')}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 mb-1">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <h3 className="font-bold text-lg text-foreground truncate">{reminder.plantName}</h3>
+                                  {!reminder.isCustom && (
+                                    <Badge variant="outline" className="text-xs font-normal shrink-0">
+                                      {t('reminders.auto_scheduled')}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-sm font-medium">
+                                  <Calendar className="w-4 h-4 text-muted-foreground" />
+                                  <span className={cn(isOverdue && "text-destructive font-bold")}>
+                                    {isToday(date) ? t('reminders.today') : format(date, 'MMM d, yyyy')}
+                                    {reminder.scheduledTime && ` • ${reminder.scheduledTime}`}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mb-2">
+                                {getIconForType(reminder.type)}
+                                <span className="capitalize">{t(`reminders.type_${reminder.type}`)}</span>
+                                {(effectiveRecurrenceDays && effectiveRecurrenceDays > 0) && (
+                                  <Badge variant="secondary" className="text-xs font-normal">
+                                    {t('reminders.recurs_every', { days: String(effectiveRecurrenceDays) })}
                                   </Badge>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 text-sm font-medium">
-                                <Calendar className="w-4 h-4 text-muted-foreground" />
-                                <span className={cn(isOverdue && "text-destructive font-bold")}>
-                                  {isToday(date) ? t('reminders.today') : format(date, 'MMM d, yyyy')}
-                                  {reminder.scheduledTime && ` • ${reminder.scheduledTime}`}
-                                </span>
-                              </div>
-                            </div>
 
-                            <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground mb-2">
-                              {getIconForType(reminder.type)}
-                              <span className="capitalize">{t(`reminders.type_${reminder.type}`)}</span>
-                              {(effectiveRecurrenceDays && effectiveRecurrenceDays > 0) && (
-                                <Badge variant="secondary" className="text-xs font-normal">
-                                  {t('reminders.recurs_every', { days: String(effectiveRecurrenceDays) })}
-                                </Badge>
+                              {reminder.notes && (
+                                <p className="text-sm text-foreground/70 bg-background/50 p-2 rounded-lg border border-border/50">
+                                  {reminder.notes}
+                                </p>
                               )}
                             </div>
 
-                            {reminder.notes && (
-                              <p className="text-sm text-foreground/70 bg-background/50 p-2 rounded-lg border border-border/50">
-                                {reminder.notes}
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="flex flex-col gap-1.5 shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => openEditDialog(reminder)}
-                              aria-label={t('reminders.edit')}
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-destructive hover:text-destructive"
-                                  aria-label={t('reminders.delete')}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>{t('reminders.delete_title')}</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    {t('reminders.delete_desc', { name: reminder.plantName })}
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>{t('reminders.cancel')}</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    onClick={() => handleDelete(reminder)}
+                            <div className="flex flex-col gap-1.5 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => openEditDialog(reminder)}
+                                aria-label={t('reminders.edit')}
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-destructive hover:text-destructive"
+                                    aria-label={t('reminders.delete')}
                                   >
-                                    {t('reminders.confirm_delete')}
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
-          ) : (
-             <div className="text-center py-20 px-4 rounded-3xl border-2 border-dashed bg-card/50">
-                <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
-                  <CheckCircle2 className="w-10 h-10 text-muted-foreground" />
-                </div>
-                <h2 className="font-serif text-2xl font-bold mb-2">{t('reminders.all_caught_up')}</h2>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  {tab === 'upcoming' 
-                    ? t('reminders.no_upcoming')
-                    : t('reminders.no_completed')}
-                </p>
-             </div>
-          )}
-        </div>
-      </Tabs>
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>{t('reminders.delete_title')}</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      {t('reminders.delete_desc', { name: reminder.plantName })}
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>{t('reminders.cancel')}</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      onClick={() => handleDelete(reminder)}
+                                    >
+                                      {t('reminders.confirm_delete')}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
+            ) : (
+               <div className="text-center py-20 px-4 rounded-3xl border-2 border-dashed bg-card/50">
+                  <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto mb-6">
+                    <CheckCircle2 className="w-10 h-10 text-muted-foreground" />
+                  </div>
+                  <h2 className="font-serif text-2xl font-bold mb-2">{t('reminders.all_caught_up')}</h2>
+                  <p className="text-muted-foreground max-w-md mx-auto">
+                    {tab === 'upcoming' 
+                      ? t('reminders.no_upcoming')
+                      : t('reminders.no_completed')}
+                  </p>
+               </div>
+            )}
+          </div>
+        </Tabs>
+      </div>
     </div>
   );
 }

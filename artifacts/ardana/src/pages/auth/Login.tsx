@@ -17,7 +17,6 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/contexts/AuthContext";
 import { useLanguage } from "@/lib/contexts/LanguageContext";
-import { ArdanaLogo } from "@/components/ui/ArdanaLogo";
 import { motion } from "framer-motion";
 import { AuthLayout } from "@/components/layout/AuthLayout";
 
@@ -82,16 +81,12 @@ export default function Login() {
         >
           {/* Brand header strip */}
           <div className="px-8 pt-8 pb-6 border-b border-black/5">
-            <div className="flex items-center gap-3">
-              <ArdanaLogo size={42} variant="dark" />
-              <div>
-                <p className="font-serif text-2xl font-bold tracking-tight leading-none text-foreground">
-                  {t("sidebar.brand")}
-                </p>
-                <p className="text-xs text-muted-foreground font-medium mt-0.5">
-                  {t("sidebar.tagline")}
-                </p>
-              </div>
+            <div className="flex items-center">
+              <img
+                src={`${import.meta.env.BASE_URL}logo-header.svg`}
+                alt={t('brand.logo_aria')}
+                className="h-14 w-auto"
+              />
             </div>
             <div className="mt-5">
               <h2 className="font-serif text-2xl font-bold text-foreground tracking-tight">

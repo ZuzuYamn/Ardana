@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="240" height="60" viewBox="0 0 240 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background tile -->
+  <rect x="10" y="10" width="40" height="40" rx="8.8" fill="#2B4A2F" />
+
+  <!-- Trunk -->
+  <rect x="28.5" y="36.5" width="3" height="6.5" rx="1" fill="#EDE3CC" />
+
+  <!-- Tier 1 -->
+  <polygon points="30,30 15.5,37.5 44.5,37.5" fill="#EDE3CC" />
+  <!-- Tier 2 -->
+  <polygon points="30,24.5 19,32.5 41,32.5" fill="#EDE3CC" />
+  <!-- Tier 3 -->
+  <polygon points="30,19.5 23,27 37,27" fill="#EDE3CC" />
+  <!-- Tier 4 -->
+  <polygon points="30,15 26.5,21 33.5,21" fill="#EDE3CC" />
+  <!-- Ground dots -->
+  <circle cx="26" cy="44.5" r="1" fill="#EDE3CC" opacity="0.5" />
+  <circle cx="34" cy="44.5" r="1" fill="#EDE3CC" opacity="0.5" />
+
+  <!-- Wordmark -->
+  <text x="60" y="30" font-family="Georgia, 'Times New Roman', serif" font-weight="bold" font-size="22" fill="#2B4A2F">Ardana</text>
+
+  <!-- Tagline -->
+  <text x="60" y="50" font-family="Georgia, 'Times New Roman', serif" font-size="12" letter-spacing="0.5" fill="#2B4A2F" opacity="0.85">Our Land. Our Life.</text>
+</svg>

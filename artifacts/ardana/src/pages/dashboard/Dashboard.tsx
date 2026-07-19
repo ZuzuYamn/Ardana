@@ -35,12 +35,13 @@ import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
 
   const { data: stats, isLoading: statsLoading } = useGetPlantDashboard();
   const { data: weather, isLoading: weatherLoading } = useGetWeather({
     lat: 33.89,
     lon: 35.5,
+    language,
   });
   const { data: reminders, isLoading: remindersLoading } = useListReminders({
     upcoming: "true",
@@ -145,7 +146,7 @@ export default function Dashboard() {
         </motion.div>
 
         <motion.div variants={item} className="h-full">
-          <Link href="/reminders" className="block h-full">
+          <Link href="/reminders?tab=upcoming" className="block h-full">
             <Card className="h-full bg-card shadow-sm border-border overflow-hidden hover-elevate transition-all cursor-pointer">
               <CardContent className="p-6 h-full flex flex-col justify-center">
                 <div className="flex items-center justify-between">

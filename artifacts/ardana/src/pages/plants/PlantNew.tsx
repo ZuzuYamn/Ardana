@@ -4,7 +4,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
-  ArrowLeft, Camera, ImagePlus, Leaf, Loader2, CheckCircle2,
+  ArrowLeft, Camera, ImagePlus, Upload, Leaf, Loader2, CheckCircle2,
   Droplets, Sparkles, FlaskConical, AlertTriangle, X, Sun, Trees,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -167,7 +167,8 @@ export default function PlantNew() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const { t, language, isRTL } = useLanguage();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const [imageData, setImageData] = useState<{ dataUrl: string; base64: string; mimeType: string } | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -278,7 +279,7 @@ export default function PlantNew() {
     } catch {
       toast({ title: t('plant_new.toast_image_failed_title'), description: t('plant_new.toast_image_failed_desc'), variant: 'destructive' });
     }
-  }, [form, toast, t]);
+  }, [form, toast, t, language]);
 
   const clearImage = () => {
     setImageData(null);
@@ -286,7 +287,8 @@ export default function PlantNew() {
     setAiEstimatedPlantedDate(null);
     setCareSchedule(null);
     setLastRecommendedSchedule(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
   // Fetch a location-aware and weather-aware care schedule whenever the relevant inputs change.
@@ -369,7 +371,7 @@ export default function PlantNew() {
     } finally {
       setIsLoadingCareSchedule(false);
     }
-  }, [aiResults, form, lastRecommendedSchedule, selectedType]);
+  }, [aiResults, form, lastRecommendedSchedule, selectedType, language]);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -460,9 +462,16 @@ export default function PlantNew() {
         </div>
 
         <div className="p-6">
-          {/* Hidden file input */}
+          {/* Hidden file inputs */}
           <input
-            ref={fileInputRef}
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageChange}
+            className="hidden"
+          />
+          <input
+            ref={cameraInputRef}
             type="file"
             accept="image/*"
             capture="environment"
@@ -472,19 +481,34 @@ export default function PlantNew() {
 
           {!imageData ? (
             /* Upload area */
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full h-52 rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-3 group"
-            >
-              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <div className="w-full h-52 rounded-xl border-2 border-dashed border-border hover:border-primary hover:bg-primary/5 transition-all flex flex-col items-center justify-center gap-3 p-4">
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
                 <ImagePlus className="w-7 h-7 text-primary" />
               </div>
               <div className="text-center">
                 <p className="font-medium text-foreground">{t('plant_new.upload_cta')}</p>
                 <p className="text-xs text-muted-foreground mt-1">{t('plant_new.upload_hint')}</p>
               </div>
-            </button>
+              <div className="flex flex-wrap gap-3 justify-center">
+                <Button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  variant="outline"
+                  className="gap-2"
+                  disabled={isAnalyzing}
+                >
+                  <Upload className="w-4 h-4" /> {t('plant_id.upload_gallery')}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="gap-2"
+                  disabled={isAnalyzing}
+                >
+                  <Camera className="w-4 h-4" /> {t('plant_id.take_photo')}
+                </Button>
+              </div>
+            </div>
           ) : (
             /* Image preview */
             <div className="relative bg-muted/50 rounded-xl border border-border overflow-hidden flex items-center justify-center">
@@ -500,14 +524,24 @@ export default function PlantNew() {
               >
                 <X className="w-4 h-4" />
               </button>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-3 right-3 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-medium hover:bg-black/80 transition-colors flex items-center gap-1.5"
-              >
-                <Camera className="w-3.5 h-3.5" />
-                {t('plant_new.change_photo')}
-              </button>
+              <div className="absolute bottom-3 right-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  className="px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-medium hover:bg-black/80 transition-colors flex items-center gap-1.5"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  {t('plant_id.upload_gallery')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-medium hover:bg-black/80 transition-colors flex items-center gap-1.5"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  {t('plant_id.take_photo')}
+                </button>
+              </div>
             </div>
           )}
 
@@ -777,7 +811,7 @@ export default function PlantNew() {
                 </div>
               )}
               {careSchedule?.explanation && !isLoadingCareSchedule && (
-                <p className="text-xs text-primary-foreground/80 bg-primary/10 rounded-lg px-3 py-2">
+                <p className="text-xs text-primary bg-primary/10 rounded-lg px-3 py-2">
                   {careSchedule.explanation}
                 </p>
               )}

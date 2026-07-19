@@ -23,7 +23,7 @@ const builders = [
     name: "Rita Kadib",
     email: "kadibritaa@gmail.com",
     github: "RitaK19",
-    linkedin: "", // TODO: add Rita's LinkedIn URL
+    linkedin: "https://www.linkedin.com/in/rita-kadib-54b57b423",
   },
 ];
 
@@ -113,12 +113,14 @@ export default function About() {
                 <h3 className="font-serif font-bold text-xl mb-1">
                   {dev.name}
                 </h3>
-                <p className="text-sm text-muted-foreground mb-1">
+                <div className="text-sm text-muted-foreground mb-1 flex items-center justify-center gap-2">
+                  <Mail className="w-4 h-4" />
                   {dev.email}
-                </p>
-                <p className="text-sm text-muted-foreground mb-6">
-                  @{dev.github}
-                </p>
+                </div>
+                <div className="text-sm text-muted-foreground mb-6 flex items-center justify-center gap-2">
+                  <Github className="w-4 h-4" />
+                  {dev.github}
+                </div>
                 <div className="flex items-center justify-center gap-4">
                   <a
                     href={`mailto:${dev.email}`}

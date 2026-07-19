@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="180" height="180" rx="39.6" fill="#2B4A2F" />
+  <rect x="85.5" y="113.5" width="13.5" height="29.25" rx="4.5" fill="#EDE3CC" />
+  <polygon points="90,85.5 27,119.25 156.75,119.25" fill="#EDE3CC" />
+  <polygon points="90,56.25 40.5,92.25 139.5,92.25" fill="#EDE3CC" />
+  <polygon points="90,33.75 58.5,67.5 121.5,67.5" fill="#EDE3CC" />
+  <polygon points="90,16.875 74.25,43.125 105.75,43.125" fill="#EDE3CC" />
+  <circle cx="76.5" cy="154.125" r="4.5" fill="#EDE3CC" opacity="0.5" />
+  <circle cx="103.5" cy="154.125" r="4.5" fill="#EDE3CC" opacity="0.5" />
+</svg>
